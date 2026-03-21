@@ -1,0 +1,119 @@
+🧪 TESTE DE MÚLTIPLOS CASOS DE ONBOARDING
+
+Total de casos: 7
+
+🗑️  Limpando sessões antigas...
+
+✅ Banco limpo
+
+
+================================================================================
+CASO 1: MEI Simples - Autônomo
+Expectativa: MEI ou Simples Nacional (deve ser automático)
+================================================================================
+
+⏳ Executando agentes IA...
+
+📊 RESULTADO:
+   Regime: SIMPLES_NACIONAL
+   Confiança: 92%
+   Precisa contador: 🟢 NÃO
+   Motivo: Prestação de serviços
+
+================================================================================
+CASO 2: PJ Simples Nacional - E-commerce
+Expectativa: Simples Nacional (deve ser automático)
+================================================================================
+
+⏳ Executando agentes IA...
+
+📊 RESULTADO:
+   Regime: CONSULTAR_CONTADOR
+   Confiança: 70%
+   Precisa contador: 🔴 SIM
+   Motivo: Cenário específico requer análise detalhada por profissional habilitado
+
+================================================================================
+CASO 3: LLC EUA + Dropshipping (caso complexo)
+Expectativa: Carnê-Leão PF (pode precisar de contador para casos internacionais)
+================================================================================
+
+⏳ Executando agentes IA...
+
+📊 RESULTADO:
+   Regime: CONSULTAR_CONTADOR
+   Confiança: 70%
+   Precisa contador: 🔴 SIM
+   Motivo: Cenário específico requer análise detalhada por profissional habilitado
+
+================================================================================
+CASO 4: Trader/Investidor
+Expectativa: PF com DARF mensal (deve ser automático)
+================================================================================
+
+⏳ Executando agentes IA...
+
+📊 RESULTADO:
+   Regime: CONSULTAR_CONTADOR
+   Confiança: 70%
+   Precisa contador: 🔴 SIM
+   Motivo: Cenário específico requer análise detalhada por profissional habilitado
+
+================================================================================
+CASO 5: SaaS com faturamento alto
+Expectativa: Lucro Presumido ou Real (pode precisar de análise)
+================================================================================
+
+⏳ Executando agentes IA...
+
+📊 RESULTADO:
+   Regime: CONSULTAR_CONTADOR
+   Confiança: 70%
+   Precisa contador: 🔴 SIM
+   Motivo: Cenário específico requer análise detalhada por profissional habilitado
+
+================================================================================
+CASO 6: Afiliado Digital
+Expectativa: PF Carnê-Leão ou abrir MEI (deve ser automático)
+================================================================================
+
+⏳ Executando agentes IA...
+
+📊 RESULTADO:
+   Regime: CONSULTAR_CONTADOR
+   Confiança: 70%
+   Precisa contador: 🔴 SIM
+   Motivo: Cenário específico requer análise detalhada por profissional habilitado
+
+================================================================================
+CASO 7: Cripto Trader Internacional (muito complexo)
+Expectativa: MUITO COMPLEXO - deve pedir contador (cripto + internacional + alto volume)
+================================================================================
+
+⏳ Executando agentes IA...
+
+📊 RESULTADO:
+   Regime: CONSULTAR_CONTADOR
+   Confiança: 70%
+   Precisa contador: 🔴 SIM
+   Motivo: Cenário específico requer análise detalhada por profissional habilitado
+
+
+================================================================================
+📊 RESUMO FINAL
+================================================================================
+
+🟢 Automáticos (IA resolveu sozinha): 1/7
+   - MEI Simples - Autônomo: SIMPLES_NACIONAL (92%)
+
+🔴 Precisam de Contador: 6/7
+   - PJ Simples Nacional - E-commerce: CONSULTAR_CONTADOR (70%)
+   - LLC EUA + Dropshipping (caso complexo): CONSULTAR_CONTADOR (70%)
+   - Trader/Investidor: CONSULTAR_CONTADOR (70%)
+   - SaaS com faturamento alto: CONSULTAR_CONTADOR (70%)
+   - Afiliado Digital: CONSULTAR_CONTADOR (70%)
+   - Cripto Trader Internacional (muito complexo): CONSULTAR_CONTADOR (70%)
+
+📈 Taxa de automação: 14.3%
+
+

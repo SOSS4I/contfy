@@ -1,0 +1,46 @@
+# Dependências
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+dist/
+build/
+.next/
+out/
+
+# Ambiente (NUNCA subir senhas/chaves)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Logs
+*.log
+backend.log
+frontend.log
+npm-debug.log*
+
+# Uploads (arquivos dos clientes)
+uploads/
+backend-node/uploads/
+
+# Banco de dados local
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temporários
+tmp_test/
+*.tmp
+*.bak
+
+# Credenciais (NUNCA subir)
+CREDENCIAIS_ADMIN.md

@@ -1,0 +1,585 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  email          String   @unique(map: "ix_users_email") @db.VarChar(255)
+  passwordHash   String   @map("password_hash") @db.VarChar(255)
+  name           String   @db.VarChar(255)
+  phone          String?  @db.VarChar(20)
+  cpf            String?  @unique(map: "ix_users_cpf") @db.VarChar(14)
+  role           userrole
+  isActive       Boolean? @map("is_active")
+  isVerified     Boolean? @map("is_verified")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+  codigoContador String?  @unique @map("codigo_contador") @db.VarChar(6)
+
+  @@index([id], map: "ix_users_id")
+  @@map("users")
+}
+
+model Contador {
+  id             Int      @id @default(autoincrement())
+  name           String   @db.VarChar(255)
+  email          String   @unique @db.VarChar(255)
+  passwordHash   String   @map("password_hash") @db.VarChar(255)
+  phone          String?  @db.VarChar(20)
+  cpf            String   @unique @db.VarChar(14)
+  crc            String?  @db.VarChar(50)
+  codigoContador String   @unique @map("codigo_contador") @db.VarChar(6)
+  status         String   @default("ativo") @db.VarChar(20)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+  clients        Client[]
+
+  @@index([email])
+  @@index([cpf])
+  @@index([codigoContador])
+  @@map("contadores")
+}
+
+model Client {
+  id                   Int                   @id @default(autoincrement())
+  name                 String                @db.VarChar(255)
+  razaoSocial          String?               @map("razao_social") @db.VarChar(255)
+  email                String                @unique(map: "ix_clients_email") @db.VarChar(255)
+  passwordHash         String?               @map("password_hash") @db.VarChar(255)
+  phone                String?               @db.VarChar(20)
+  cnpj                 String?               @unique(map: "ix_clients_cnpj") @db.VarChar(18)
+  cpf                  String?               @unique(map: "ix_clients_cpf") @db.VarChar(14)
+  ie                   String?               @db.VarChar(20)
+  im                   String?               @db.VarChar(20)
+  address              Json?                 @db.Json
+  endereco             String?               @db.VarChar(500)
+  cidade               String?               @db.VarChar(100)
+  estado               String?               @db.VarChar(2)
+  cep                  String?               @db.VarChar(9)
+  regimeTributario     String?               @map("regime_tributario") @db.VarChar(50)
+  taxRegime            taxregime             @default(SIMPLES_NACIONAL) @map("tax_regime")
+  simplesNacionalAnexo simplesnacionalanexo? @map("simples_nacional_anexo")
+  cnaePrincipal        String?               @map("cnae_principal") @db.VarChar(10)
+  cnaeSecundarios      Json?                 @map("cnae_secundarios") @db.Json
+  monthlyRevenue       Int?                  @default(0) @map("monthly_revenue")
+  annualRevenue        Int?                  @default(0) @map("annual_revenue")
+  employeeCount        Int?                  @default(0) @map("employee_count")
+  isActive             Boolean?              @default(true) @map("is_active")
+  isVerified           Boolean?              @default(false) @map("is_verified")
+  preferences          Json?                 @db.Json
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamp(6)
+  contadorId           Int?                  @map("contador_id")
+  contador             Contador?             @relation(fields: [contadorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_clients_contador_id")
+  declarations         Declaration[]
+  documents            Document[]
+  taxCalculations      TaxCalculation[]
+  onboardingSessions   OnboardingSession[]
+  legalResearch        LegalResearchResult[]
+  fiscalClassification FiscalClassification?
+  accountingConfig     ClientAccountingConfig?
+  monthlyCycles        MonthlyAccountingCycle[]
+  monthlyDocuments     ClientMonthlyDocument[]
+  nfeData              ClientNFeData[]
+
+  @@index([contadorId], map: "ix_clients_contador_id")
+  @@index([id], map: "ix_clients_id")
+  @@map("clients")
+}
+
+model Document {
+  id                    Int            @id @default(autoincrement())
+  clientId              Int            @map("client_id")
+  fileName              String         @map("file_name") @db.VarChar(255)
+  filePath              String         @map("file_path") @db.VarChar(500)
+  fileSize              Int?           @map("file_size")
+  file_type             String?        @db.VarChar(50)
+  file_hash             String?        @db.VarChar(64)
+  documentType          documenttype   @map("document_type")
+  status                documentstatus
+  extracted_data        Json?          @db.Json
+  fiscal_classification Json?          @db.Json
+  total_value           Float?
+  tax_value             Float?
+  net_value             Float?
+  issue_date            DateTime?      @db.Date
+  due_date              DateTime?      @db.Date
+  payment_date          DateTime?      @db.Date
+  issuer                Json?          @db.Json
+  recipient             Json?          @db.Json
+  extraMetadata         Json?          @map("extra_metadata") @db.Json
+  processingLog         String?        @map("processing_log")
+  errorMessage          String?        @map("error_message")
+  tags                  Json?          @db.Json
+  createdAt             DateTime       @map("created_at") @db.Timestamp(6)
+  updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamp(6)
+  client                Client         @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([clientId], map: "ix_documents_client_id")
+  @@index([id], map: "ix_documents_id")
+  @@index([status], map: "ix_documents_status")
+  @@map("documents")
+}
+
+model TaxCalculation {
+  id                       Int               @id @default(autoincrement())
+  clientId                 Int               @map("client_id")
+  referenceMonth           Int               @map("reference_month")
+  referenceYear            Int               @map("reference_year")
+  taxType                  taxtype           @map("tax_type")
+  status                   calculationstatus
+  gross_revenue            Float
+  deductions               Float?
+  taxable_revenue          Float
+  taxRate                  Float             @map("tax_rate")
+  taxAmount                Float             @map("tax_amount")
+  simples_nacional_details Json?             @db.Json
+  tax_breakdown            Json?             @db.Json
+  related_documents        Json?             @db.Json
+  dueDate                  DateTime?         @map("due_date") @db.Date
+  paymentDate              DateTime?         @map("payment_date") @db.Date
+  payment_code             String?           @db.VarChar(100)
+  payment_receipt          String?           @db.VarChar(500)
+  notes                    String?
+  calculation_log          String?
+  error_message            String?
+  validated_by_agent       String?           @db.VarChar(50)
+  validation_score         Float?
+  createdAt                DateTime          @map("created_at") @db.Timestamp(6)
+  updatedAt                DateTime          @updatedAt @map("updated_at") @db.Timestamp(6)
+  client                   Client            @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([clientId], map: "ix_tax_calculations_client_id")
+  @@index([id], map: "ix_tax_calculations_id")
+  @@index([status], map: "ix_tax_calculations_status")
+  @@index([taxType], map: "ix_tax_calculations_tax_type")
+  @@map("tax_calculations")
+}
+
+model Declaration {
+  id                      Int               @id @default(autoincrement())
+  clientId                Int               @map("client_id")
+  declarationType         declarationtype   @map("declaration_type")
+  status                  declarationstatus
+  referenceMonth          Int?              @map("reference_month")
+  referenceYear           Int               @map("reference_year")
+  file_name               String?           @db.VarChar(255)
+  filePath                String?           @map("file_path") @db.VarChar(500)
+  file_format             String?           @db.VarChar(20)
+  declarationData         Json              @map("declaration_data") @db.Json
+  receipt_number          String?           @db.VarChar(100)
+  transmission_date       DateTime?         @db.Date
+  protocolNumber          String?           @map("protocol_number") @db.VarChar(100)
+  validation_errors       Json?             @db.Json
+  validation_warnings     Json?             @db.Json
+  is_rectification        Boolean?
+  original_declaration_id Int?
+  related_documents       Json?             @db.Json
+  related_calculations    Json?             @db.Json
+  due_date                DateTime?         @db.Date
+  submissionDate          DateTime?         @map("submission_date") @db.Date
+  file_hash               String?           @db.VarChar(64)
+  notes                   String?
+  generation_log          String?
+  error_message           String?
+  generated_by_agent      String?           @db.VarChar(50)
+  validated_by_agent      String?           @db.VarChar(50)
+  createdAt               DateTime          @map("created_at") @db.Timestamp(6)
+  updatedAt               DateTime          @updatedAt @map("updated_at") @db.Timestamp(6)
+  client                  Client            @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  declarations            Declaration?      @relation("declarationsTodeclarations", fields: [original_declaration_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_declarations      Declaration[]     @relation("declarationsTodeclarations")
+
+  @@index([clientId], map: "ix_declarations_client_id")
+  @@index([declarationType], map: "ix_declarations_declaration_type")
+  @@index([id], map: "ix_declarations_id")
+  @@index([status], map: "ix_declarations_status")
+  @@map("declarations")
+}
+
+model AgentTask {
+  id                Int          @id @default(autoincrement())
+  agentType         agenttype    @map("agent_type")
+  agent_instance_id String?      @db.VarChar(100)
+  status            taskstatus
+  priority          taskpriority
+  taskName          String       @map("task_name") @db.VarChar(255)
+  taskDescription   String?      @map("task_description")
+  inputData         Json         @map("input_data") @db.Json
+  outputData        Json?        @map("output_data") @db.Json
+  error_data        Json?        @db.Json
+  client_id         Int?
+  document_id       Int?
+  parent_task_id    Int?
+  related_task_ids  Json?        @db.Json
+  started_at        String?      @db.VarChar(50)
+  completedAt       String?      @map("completed_at") @db.VarChar(50)
+  execution_time    Float?
+  retry_count       Int?
+  max_retries       Int?
+  execution_log     String?
+  errorMessage      String?      @map("error_message")
+  stack_trace       String?
+  tokens_used       Int?
+  api_calls         Int?
+  confidence_score  Float?
+  callback_url      String?      @db.VarChar(500)
+  webhook_data      Json?        @db.Json
+  extra_metadata    Json?        @db.Json
+  createdAt         DateTime     @map("created_at") @db.Timestamp(6)
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@index([agentType], map: "ix_agent_tasks_agent_type")
+  @@index([id], map: "ix_agent_tasks_id")
+  @@index([priority], map: "ix_agent_tasks_priority")
+  @@index([status], map: "ix_agent_tasks_status")
+  @@map("agent_tasks")
+}
+
+model OnboardingSession {
+  id             Int                   @id @default(autoincrement())
+  clientId       Int                   @map("client_id")
+  status         onboardingstatus      @default(IN_PROGRESS)
+  currentStep    Int                   @default(1) @map("current_step")
+  totalSteps     Int?                  @map("total_steps")
+  startedAt      DateTime              @default(now()) @map("started_at") @db.Timestamp(6)
+  completedAt    DateTime?             @map("completed_at") @db.Timestamp(6)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamp(6)
+  classification FiscalClassification?
+  legalResearch  LegalResearchResult[]
+  responses      OnboardingResponse[]
+  client         Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("onboarding_sessions")
+}
+
+model OnboardingQuestion {
+  id             Int                  @id @default(autoincrement())
+  questionKey    String               @unique @map("question_key") @db.VarChar(100)
+  questionText   String               @map("question_text")
+  questionType   questiontype         @map("question_type")
+  options        Json?                @db.Json
+  orderIndex     Int                  @map("order_index")
+  isConditional  Boolean              @default(false) @map("is_conditional")
+  conditionLogic Json?                @map("condition_logic") @db.Json
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
+  responses      OnboardingResponse[]
+
+  @@map("onboarding_questions")
+}
+
+model OnboardingResponse {
+  id            Int                @id @default(autoincrement())
+  sessionId     Int                @map("session_id")
+  questionId    Int                @map("question_id")
+  responseValue Json               @map("response_value") @db.Json
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamp(6)
+  question      OnboardingQuestion @relation(fields: [questionId], references: [id])
+  session       OnboardingSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([questionId])
+  @@map("onboarding_responses")
+}
+
+model LegalResearchResult {
+  id                 Int               @id @default(autoincrement())
+  clientId           Int               @map("client_id")
+  sessionId          Int               @map("session_id")
+  applicableLaws     Json              @map("applicable_laws") @db.Json
+  taxRecommendations Json              @map("tax_recommendations") @db.Json
+  researchLog        String?           @map("research_log")
+  confidenceScore    Float?            @map("confidence_score")
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+  client             Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  session            OnboardingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([sessionId])
+  @@map("legal_research_results")
+}
+
+model FiscalClassification {
+  id                 Int               @id @default(autoincrement())
+  clientId           Int               @unique @map("client_id")
+  sessionId          Int               @unique @map("session_id")
+  classificationData Json              @map("classification_data") @db.Json
+  customConfig       Json              @map("custom_config") @db.Json
+  isActive           Boolean           @default(true) @map("is_active")
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamp(6)
+  client             Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  session            OnboardingSession @relation(fields: [sessionId], references: [id])
+
+  @@index([clientId])
+  @@map("fiscal_classifications")
+}
+
+model ClientAccountingConfig {
+  id                   Int       @id @default(autoincrement())
+  clientId             Int       @unique @map("client_id")
+  regimeTributario     String    @map("regime_tributario") @db.VarChar(50)
+  anexoSimples         String?   @map("anexo_simples") @db.VarChar(10)
+  atividade_principal  String?
+  cnae_code            String?   @db.VarChar(20)
+  hasEmployees         Boolean?  @default(false) @map("has_employees")
+  employee_count       Int?      @default(0)
+  has_prolabore        Boolean?  @default(false)
+  contadorInstructions String?   @map("contador_instructions")
+  required_documents   Json?
+  status               String?   @default("ACTIVE") @db.VarChar(20)
+  approved_by          Int?
+  approved_at          DateTime? @db.Timestamp(6)
+  createdAt            DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt            DateTime? @updatedAt @map("updated_at") @db.Timestamp(6)
+  client               Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("client_accounting_config")
+}
+
+model MonthlyAccountingCycle {
+  id                     Int       @id @default(autoincrement())
+  clientId               Int       @map("client_id")
+  referenceMonth         Int       @map("reference_month")
+  referenceYear          Int       @map("reference_year")
+  status                 String    @default("AWAITING_DOCUMENTS") @db.VarChar(30)
+  documents_requested_at DateTime? @db.Timestamp(6)
+  documents_deadline     DateTime? @db.Date
+  documents_received_at  DateTime? @db.Timestamp(6)
+  documents_validated    Boolean?  @default(false)
+  tax_calculation        Json?
+  accounting_entries     Json?
+  das_pdf_path           String?
+  das_value              Decimal?  @db.Decimal(10, 2)
+  das_due_date           DateTime? @db.Date
+  das_paid               Boolean?  @default(false)
+  das_paid_at            DateTime? @db.Timestamp(6)
+  monthly_report_path    String?
+  monthly_report_data    Json?
+  processingLog          String?   @map("processing_log")
+  error_message          String?
+  createdAt              DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt              DateTime? @map("updated_at") @db.Timestamp(6)
+  client                 Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, referenceMonth, referenceYear])
+  @@index([clientId])
+  @@index([status])
+  @@map("monthly_accounting_cycles")
+}
+
+model ClientMonthlyDocument {
+  id                 Int       @id @default(autoincrement())
+  cycle_id           Int
+  clientId           Int       @map("client_id")
+  documentType       String    @map("document_type") @db.VarChar(50)
+  filePath           String    @map("file_path")
+  fileName           String    @map("file_name")
+  fileSize           Int?      @map("file_size")
+  file_mime_type     String?   @db.VarChar(100)
+  validated          Boolean?  @default(false)
+  validation_result  Json?
+  validation_message String?
+  extracted_data     Json?
+  notes              String?
+  uploadedAt         DateTime? @default(now()) @map("uploaded_at") @db.Timestamp(6)
+  client             Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("client_monthly_documents")
+}
+
+model ClientNFeData {
+  id                 Int       @id @default(autoincrement())
+  document_id        Int
+  cycle_id           Int
+  clientId           Int       @map("client_id")
+  nfeType            String    @map("nfe_type") @db.VarChar(20)
+  nfeNumber          String?   @map("nfe_number") @db.VarChar(50)
+  nfe_series         String?   @db.VarChar(10)
+  nfeKey             String?   @map("nfe_key") @db.VarChar(44)
+  nfeDate            DateTime? @map("nfe_date") @db.Date
+  totalValue         Decimal?  @map("total_value") @db.Decimal(10, 2)
+  base_calculo_icms  Decimal?  @db.Decimal(10, 2)
+  valorIcms          Decimal?  @map("valor_icms") @db.Decimal(10, 2)
+  base_calculo_issqn Decimal?  @db.Decimal(10, 2)
+  valor_issqn        Decimal?  @db.Decimal(10, 2)
+  valorPis           Decimal?  @map("valor_pis") @db.Decimal(10, 2)
+  valorCofins        Decimal?  @map("valor_cofins") @db.Decimal(10, 2)
+  cfop               String?   @db.VarChar(10)
+  partner_cnpj_cpf   String?   @db.VarChar(20)
+  partnerName        String?   @map("partner_name")
+  xml_data           String?
+  createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  client             Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([nfeKey])
+  @@map("client_nfe_data")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model admin_notifications {
+  id               Int       @id @default(autoincrement())
+  client_id        Int
+  session_id       Int?
+  type             String    @db.VarChar(50)
+  status           String    @default("PENDING") @db.VarChar(50)
+  title            String    @db.VarChar(255)
+  message          String?
+  severity         String    @default("INFO") @db.VarChar(20)
+  regime           String?   @db.VarChar(100)
+  confidence_score Decimal?  @db.Decimal(3, 2)
+  contador_id      Int?
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+  reviewed_at      DateTime? @db.Timestamp(6)
+  reviewed_by      Int?
+  contador_notes   String?
+
+  @@index([client_id], map: "idx_admin_notifications_client")
+  @@index([created_at(sort: Desc)], map: "idx_admin_notifications_created")
+  @@index([status], map: "idx_admin_notifications_status")
+  @@index([type], map: "idx_admin_notifications_type")
+}
+
+enum agenttype {
+  COORDINATOR
+  DOCUMENT_PROCESSOR
+  FISCAL_CLASSIFIER
+  TAX_CALCULATOR
+  DECLARATION_GENERATOR
+  VALIDATOR
+  COMMUNICATOR
+}
+
+enum calculationstatus {
+  PENDING
+  CALCULATING
+  COMPLETED
+  ERROR
+  PAID
+  OVERDUE
+}
+
+enum declarationstatus {
+  DRAFT
+  GENERATING
+  GENERATED
+  VALIDATING
+  VALIDATED
+  TRANSMITTED
+  ACCEPTED
+  REJECTED
+  ERROR
+}
+
+enum declarationtype {
+  DEFIS
+  DASN
+  PGDAS
+  DCTF
+  EFD_CONTRIBUICOES
+  EFD_ICMS_IPI
+  SPED_CONTABIL
+  DIRF
+  RAIS
+  CAGED
+  ESOCIAL
+}
+
+enum documentstatus {
+  UPLOADED
+  PROCESSING
+  PROCESSED
+  CLASSIFIED
+  ERROR
+  PENDING_REVIEW
+}
+
+enum documenttype {
+  NF_ENTRADA
+  NF_SAIDA
+  NFS_E
+  CT_E
+  RECIBO
+  BOLETO
+  EXTRATO_BANCARIO
+  OUTROS
+}
+
+enum simplesnacionalanexo {
+  ANEXO_I
+  ANEXO_II
+  ANEXO_III
+  ANEXO_IV
+  ANEXO_V
+  ANEXO_VI
+}
+
+enum taskpriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum taskstatus {
+  QUEUED
+  ASSIGNED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  WAITING
+  RETRY
+}
+
+enum taxregime {
+  SIMPLES_NACIONAL
+  LUCRO_PRESUMIDO
+  LUCRO_REAL
+  MEI
+}
+
+enum taxtype {
+  DAS
+  ICMS
+  ISS
+  PIS
+  COFINS
+  IPI
+  IRPJ
+  CSLL
+  CPP
+  INSS
+}
+
+enum userrole {
+  ADMIN
+  CONTADOR
+  CLIENTE
+}
+
+enum onboardingstatus {
+  IN_PROGRESS
+  COMPLETED
+  ANALYZING
+  ERROR
+}
+
+enum questiontype {
+  TEXT
+  SELECT
+  MULTISELECT
+  BOOLEAN
+  NUMBER
+}
