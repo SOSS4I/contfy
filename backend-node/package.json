@@ -22,6 +22,11 @@
     "@types/pdfkit": "^0.17.4",
     "@types/xml2js": "^0.4.14",
     "axios": "^1.13.2",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.10.1",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -35,11 +40,6 @@
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.10.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   }
