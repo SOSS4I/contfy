@@ -199,20 +199,19 @@ async function buildClientContext(clientId: number): Promise<string> {
   try {
     const [clientRows, configRows, cycleRows] = await Promise.all([
       prisma.$queryRaw<any[]>`
-        SELECT name, cnpj, email FROM clients WHERE id = ${clientId} LIMIT 1
+        SELECT name, cnpj, email, monthly_revenue FROM clients WHERE id = ${clientId} LIMIT 1
       `,
       prisma.$queryRaw<any[]>`
-        SELECT regime_tributario, anexo_simples, faturamento_mensal,
-               has_employees, employee_count, contador_instructions, documents_needed
+        SELECT regime_tributario, anexo_simples,
+               has_employees, employee_count, contador_instructions, required_documents
         FROM client_accounting_config
         WHERE client_id = ${clientId} AND status = 'APPROVED'
         LIMIT 1
       `,
       prisma.$queryRaw<any[]>`
         SELECT id, status, reference_month, reference_year,
-               tax_calculation, documents_requested,
-               das_value, das_due_date, das_paid,
-               accounting_entries, monthly_report_data
+               tax_calculation, das_value, das_due_date, das_paid,
+               monthly_report_data
         FROM monthly_accounting_cycles
         WHERE client_id = ${clientId}
         ORDER BY created_at DESC LIMIT 1
@@ -229,6 +228,9 @@ async function buildClientContext(clientId: number): Promise<string> {
       parts.push(`=== DADOS DA EMPRESA ===`)
       parts.push(`Nome: ${cl.name}`)
       if (cl.cnpj) parts.push(`CNPJ: ${cl.cnpj}`)
+      if (cl.monthly_revenue && Number(cl.monthly_revenue) > 0) {
+        parts.push(`Faturamento mensal estimado: R$ ${Number(cl.monthly_revenue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+      }
     }
 
     // Configuração contábil
@@ -237,9 +239,6 @@ async function buildClientContext(clientId: number): Promise<string> {
       parts.push(`\n=== CONFIGURAÇÃO CONTÁBIL ===`)
       parts.push(`Regime tributário: ${c.regime_tributario || 'Simples Nacional'}`)
       if (c.anexo_simples) parts.push(`Anexo Simples Nacional: Anexo ${c.anexo_simples}`)
-      if (c.faturamento_mensal) {
-        parts.push(`Faturamento mensal estimado: R$ ${Number(c.faturamento_mensal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
-      }
       if (c.has_employees) {
         parts.push(`Funcionários: ${c.employee_count || 'Sim'}`)
       } else {
@@ -249,10 +248,10 @@ async function buildClientContext(clientId: number): Promise<string> {
         parts.push(`Observações do contador: ${c.contador_instructions}`)
       }
 
-      // Documentos configurados
-      if (c.documents_needed) {
+      // Documentos configurados pelo contador
+      if (c.required_documents) {
         try {
-          const docs = typeof c.documents_needed === 'string' ? JSON.parse(c.documents_needed) : c.documents_needed
+          const docs = typeof c.required_documents === 'string' ? JSON.parse(c.required_documents) : c.required_documents
           if (Array.isArray(docs) && docs.length > 0) {
             const mandatory = docs.filter((d: any) => d.mandatory !== false).map((d: any) => d.name || d.type)
             const optional = docs.filter((d: any) => d.mandatory === false).map((d: any) => d.name || d.type)
@@ -280,21 +279,24 @@ async function buildClientContext(clientId: number): Promise<string> {
       }
       parts.push(`Status: ${statusLabel[cy.status] || cy.status}`)
 
-      // Documentos solicitados
-      if (cy.documents_requested) {
+      // Documentos solicitados — guardados dentro do JSON monthly_report_data
+      if (cy.monthly_report_data) {
         try {
-          const req = typeof cy.documents_requested === 'string' ? JSON.parse(cy.documents_requested) : cy.documents_requested
-          const docsNeeded = req.documents_needed || req.documents || []
-          if (Array.isArray(docsNeeded) && docsNeeded.length > 0) {
-            const mandatory = docsNeeded.filter((d: any) => d.mandatory !== false)
-            const optional = docsNeeded.filter((d: any) => d.mandatory === false)
-            if (mandatory.length > 0) {
-              parts.push(`Documentos OBRIGATÓRIOS a enviar: ${mandatory.map((d: any) => d.name || d.type).join(', ')}`)
+          const reportJson = typeof cy.monthly_report_data === 'string' ? JSON.parse(cy.monthly_report_data) : cy.monthly_report_data
+          const req = reportJson?.documentsRequested
+          if (req) {
+            const docsNeeded = req.documents_needed || req.documents || []
+            if (Array.isArray(docsNeeded) && docsNeeded.length > 0) {
+              const mandatory = docsNeeded.filter((d: any) => d.mandatory !== false)
+              const optional = docsNeeded.filter((d: any) => d.mandatory === false)
+              if (mandatory.length > 0) {
+                parts.push(`Documentos OBRIGATÓRIOS a enviar: ${mandatory.map((d: any) => d.name || d.type).join(', ')}`)
+              }
+              if (optional.length > 0) {
+                parts.push(`Documentos opcionais a enviar: ${optional.map((d: any) => d.name || d.type).join(', ')}`)
+              }
+              if (req.message) parts.push(`Instruções do sistema: ${req.message}`)
             }
-            if (optional.length > 0) {
-              parts.push(`Documentos opcionais a enviar: ${optional.map((d: any) => d.name || d.type).join(', ')}`)
-            }
-            if (req.message) parts.push(`Instruções do sistema: ${req.message}`)
           }
         } catch {}
       }
@@ -342,25 +344,29 @@ async function buildClientContext(clientId: number): Promise<string> {
         parts.push(`DAS: R$ ${Number(cy.das_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — Vencimento: ${venc} — ${pago}`)
       }
 
-      // Relatório gerencial
+      // Relatório gerencial — guardado em monthly_report_data.report
       if (cy.monthly_report_data) {
         try {
-          const report = typeof cy.monthly_report_data === 'string' ? JSON.parse(cy.monthly_report_data) : cy.monthly_report_data
-          parts.push(`\n=== RESULTADO FINANCEIRO ===`)
-          if (report.receita_bruta !== undefined) {
-            parts.push(`Receita bruta: R$ ${Number(report.receita_bruta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
-          }
-          if (report.despesas_operacionais !== undefined && report.despesas_operacionais > 0) {
-            parts.push(`Despesas operacionais: R$ ${Number(report.despesas_operacionais).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
-          }
-          if (report.lucro_liquido !== undefined) {
-            parts.push(`Lucro líquido: R$ ${Number(report.lucro_liquido).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
-          }
-          if (report.margem_lucro !== undefined) {
-            parts.push(`Margem de lucro: ${Number(report.margem_lucro).toFixed(2)}%`)
-          }
-          if (report.insights && Array.isArray(report.insights) && report.insights.length > 0) {
-            parts.push(`Insights do período: ${report.insights.join('; ')}`)
+          const reportJson = typeof cy.monthly_report_data === 'string' ? JSON.parse(cy.monthly_report_data) : cy.monthly_report_data
+          const report = reportJson?.report
+          if (report) {
+            const dre = report.dre || report
+            parts.push(`\n=== RESULTADO FINANCEIRO ===`)
+            if (dre.receita_bruta !== undefined) {
+              parts.push(`Receita bruta: R$ ${Number(dre.receita_bruta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+            }
+            if (dre.despesas_operacionais !== undefined && Number(dre.despesas_operacionais) > 0) {
+              parts.push(`Despesas operacionais: R$ ${Number(dre.despesas_operacionais).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+            }
+            if (dre.lucro_liquido !== undefined) {
+              parts.push(`Lucro líquido: R$ ${Number(dre.lucro_liquido).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+            }
+            if (dre.margem_liquida !== undefined) {
+              parts.push(`Margem de lucro: ${Number(dre.margem_liquida).toFixed(2)}%`)
+            }
+            if (report.insights && Array.isArray(report.insights) && report.insights.length > 0) {
+              parts.push(`Insights do período: ${report.insights.join('; ')}`)
+            }
           }
         } catch {}
       }
@@ -416,8 +422,8 @@ async function buildContadorContext(contadorId: number): Promise<string> {
       `,
       // Todos os clientes ativos com suas configurações
       prisma.$queryRaw<any[]>`
-        SELECT c.id, c.name, c.cnpj,
-               cac.regime_tributario, cac.anexo_simples, cac.faturamento_mensal,
+        SELECT c.id, c.name, c.cnpj, c.monthly_revenue,
+               cac.regime_tributario, cac.anexo_simples,
                cac.has_employees, cac.status as config_status
         FROM clients c
         LEFT JOIN client_accounting_config cac ON cac.client_id = c.id
@@ -497,8 +503,8 @@ async function buildContadorContext(contadorId: number): Promise<string> {
       if (client.config_status === 'APPROVED') {
         if (client.regime_tributario) linha += ` — ${client.regime_tributario}`
         if (client.anexo_simples) linha += ` Anexo ${client.anexo_simples}`
-        if (client.faturamento_mensal) {
-          linha += ` — Fat. R$ ${Number(client.faturamento_mensal).toLocaleString('pt-BR')}/mês`
+        if (client.monthly_revenue && Number(client.monthly_revenue) > 0) {
+          linha += ` — Fat. R$ ${Number(client.monthly_revenue).toLocaleString('pt-BR')}/mês`
         }
       } else {
         linha += ` — ⚠️ Configuração pendente de aprovação`
@@ -535,14 +541,15 @@ async function buildContadorContext(contadorId: number): Promise<string> {
 
         if (latestCycle.monthly_report_data) {
           try {
-            const report = typeof latestCycle.monthly_report_data === 'string'
+            const reportJson = typeof latestCycle.monthly_report_data === 'string'
               ? JSON.parse(latestCycle.monthly_report_data)
               : latestCycle.monthly_report_data
-            if (report.lucro_liquido !== undefined) {
-              linha += ` — Lucro: R$ ${Number(report.lucro_liquido).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            const dre = reportJson?.report?.dre || reportJson?.report
+            if (dre?.lucro_liquido !== undefined) {
+              linha += ` — Lucro: R$ ${Number(dre.lucro_liquido).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
             }
-            if (report.margem_lucro !== undefined) {
-              linha += ` (margem ${Number(report.margem_lucro).toFixed(1)}%)`
+            if (dre?.margem_liquida !== undefined) {
+              linha += ` (margem ${Number(dre.margem_liquida).toFixed(1)}%)`
             }
           } catch {}
         }
