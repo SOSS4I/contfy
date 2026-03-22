@@ -62,14 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
 
-      // Determinar se é contador ou cliente pelo email
-      const isContador = email.includes('contador') || email.includes('admin')
-      const endpoint = isContador ? '/auth/contador/login' : '/auth/cliente/login'
-
-      console.log('[AuthContext] Endpoint de login:', endpoint)
-
-      // Fazer login no backend
-      const response = await fetch(`${API_URL}${endpoint}`, {
+      // Fazer login no backend (endpoint genérico aceita contador e cliente)
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
