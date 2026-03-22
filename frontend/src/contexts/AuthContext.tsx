@@ -61,24 +61,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('[AuthContext] login() chamado com email:', email)
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+      const loginURL = `${API_URL}/auth/login`
 
-      // Fazer login no backend (endpoint genérico aceita contador e cliente)
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password })
-      })
+      console.log('[AuthContext] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL)
+      console.log('[AuthContext] URL completa da requisição:', loginURL)
 
-      const data = await response.json()
+      let response: Response
+      try {
+        response = await fetch(loginURL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        })
+      } catch (fetchError: any) {
+        console.error('[AuthContext] ERRO DE REDE (fetch falhou):', fetchError?.message, fetchError)
+        throw new Error(`Erro de rede: ${fetchError?.message || 'Não foi possível conectar ao servidor'}`)
+      }
+
+      console.log('[AuthContext] Resposta recebida - status:', response.status, 'ok:', response.ok)
+
+      let data: any
+      try {
+        data = await response.json()
+      } catch (jsonError) {
+        console.error('[AuthContext] Erro ao parsear JSON da resposta:', jsonError)
+        throw new Error('Resposta inválida do servidor (não é JSON)')
+      }
+
+      console.log('[AuthContext] Dados da resposta:', JSON.stringify(data))
 
       if (!response.ok) {
-        // Erros de autenticação
-        throw new Error(data.message || 'Erro ao fazer login')
+        console.error('[AuthContext] Resposta com erro HTTP:', response.status, data)
+        throw new Error(data.message || `Erro ${response.status}`)
       }
 
       if (!data.success || !data.data) {
+        console.error('[AuthContext] Resposta sem data.success ou data.data:', data)
         throw new Error(data.message || 'Resposta inválida do servidor')
       }
 
