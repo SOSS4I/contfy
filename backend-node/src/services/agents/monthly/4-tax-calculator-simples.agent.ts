@@ -234,6 +234,16 @@ export class TaxCalculatorSimplesAgent {
       breakdown.CPP = valor * 0.43
       breakdown.ISS = valor * 0.35
     }
+    // Anexo IV (Serviços específicos - construção civil etc., sem CPP): 18+19+13+3+47 = 100%
+    // CPP é recolhido separadamente (INSS patronal 20%) no Anexo IV
+    else if (anexo === 'IV') {
+      breakdown.IRPJ = valor * 0.18
+      breakdown.CSLL = valor * 0.19
+      breakdown.COFINS = valor * 0.13
+      breakdown.PIS = valor * 0.03
+      breakdown.CPP = 0
+      breakdown.ISS = valor * 0.47
+    }
     // Anexo V (Serviços com Fator R < 28%): 25+15+14+4+28+14 = 100%
     else if (anexo === 'V') {
       breakdown.IRPJ = valor * 0.25

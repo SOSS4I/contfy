@@ -1,15 +1,19 @@
 /**
  * AGENT 3: NFe Data Extractor
  *
- * Responsabilidade: Ler XML das NFe e extrair dados fiscais
- * Modelo: NÃO USA IA - apenas parse XML
- * Temperature: N/A
+ * Responsabilidade: Ler NFe (XML ou PDF) e extrair dados fiscais
+ * Modelo XML: Parse nativo (rápido, gratuito, 100% preciso)
+ * Modelo PDF: claude-opus-4-6 (máxima precisão para documentos complexos)
+ * Temperature: 0 (determinístico)
  *
- * Input: XMLs das NFe
+ * Input: XML ou PDF das NFe
  * Output: Dados estruturados (valor, impostos, CFOP, etc)
  */
 
 import * as xml2js from 'xml2js'
+import Anthropic from '@anthropic-ai/sdk'
+import * as fs from 'fs'
+import * as path from 'path'
 
 interface NFeData {
   nfe_number: string
@@ -30,6 +34,7 @@ interface NFeData {
 
 export class NFeExtractorAgent {
   private parser: xml2js.Parser
+  private client: Anthropic
 
   constructor() {
     this.parser = new xml2js.Parser({
@@ -37,27 +42,174 @@ export class NFeExtractorAgent {
       mergeAttrs: true,
       tagNameProcessors: [xml2js.processors.stripPrefix]
     })
+    this.client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     console.log('✅ NFeExtractorAgent inicializado')
   }
 
   /**
+   * Detecta o tipo de arquivo pelo conteúdo e roteia para o extrator correto.
+   * Aceita: XML (string), PDF (Buffer ou caminho de arquivo)
+   */
+  async extractFromFile(
+    filePathOrContent: string,
+    nfeType: 'EMITIDA' | 'RECEBIDA',
+    isFilePath = false
+  ): Promise<NFeData[]> {
+    if (isFilePath) {
+      const ext = path.extname(filePathOrContent).toLowerCase()
+      if (ext === '.pdf') {
+        return this.extractFromPDF(filePathOrContent, nfeType)
+      }
+      // XML ou ZIP: lê como texto
+      const content = fs.readFileSync(filePathOrContent, 'utf-8')
+      return this.extractFromXMLBatch(content, nfeType)
+    }
+
+    // Content string: verifica se é PDF pelo magic bytes ou XML pelo conteúdo
+    const trimmed = filePathOrContent.trim()
+    if (trimmed.startsWith('%PDF')) {
+      // É um PDF passado como string — converte para Buffer
+      const buf = Buffer.from(filePathOrContent, 'binary')
+      return this.extractFromPDFBuffer(buf, nfeType)
+    }
+
+    return this.extractFromXMLBatch(filePathOrContent, nfeType)
+  }
+
+  /**
+   * Extrai NFes de PDF usando Claude Opus (máxima precisão)
+   * @param filePath Caminho absoluto do arquivo PDF
+   */
+  async extractFromPDF(filePath: string, nfeType: 'EMITIDA' | 'RECEBIDA'): Promise<NFeData[]> {
+    console.log(`   📄 Extraindo NFe de PDF via Claude Opus: ${path.basename(filePath)}`)
+    const buffer = fs.readFileSync(filePath)
+    return this.extractFromPDFBuffer(buffer, nfeType)
+  }
+
+  /**
+   * Extrai NFes de um Buffer PDF usando Claude Opus
+   */
+  async extractFromPDFBuffer(buffer: Buffer, nfeType: 'EMITIDA' | 'RECEBIDA'): Promise<NFeData[]> {
+    const base64 = buffer.toString('base64')
+
+    const prompt = `Você é um especialista em Notas Fiscais Eletrônicas (NFe) brasileiras.
+
+Analise este documento PDF e extraia TODOS os dados de TODAS as Notas Fiscais presentes.
+
+Para cada NFe encontrada, retorne um JSON com EXATAMENTE esta estrutura:
+{
+  "nfe_number": "número da nota (ex: 001234)",
+  "nfe_series": "série da nota (ex: 1)",
+  "nfe_key": "chave de acesso de 44 dígitos (se disponível, senão vazio)",
+  "nfe_date": "data de emissão no formato YYYY-MM-DD",
+  "total_value": valor total da nota em número decimal,
+  "base_calculo_icms": base de cálculo ICMS em número decimal (0 se não aplicável),
+  "valor_icms": valor do ICMS em número decimal (0 se não aplicável),
+  "base_calculo_issqn": base de cálculo ISSQN em número decimal (0 se não aplicável),
+  "valor_issqn": valor do ISS/ISSQN em número decimal (0 se não aplicável),
+  "valor_pis": valor do PIS em número decimal (0 se não aplicável),
+  "valor_cofins": valor do COFINS em número decimal (0 se não aplicável),
+  "cfop": "código CFOP principal (ex: 5102)",
+  "partner_cnpj_cpf": "CNPJ ou CPF do ${nfeType === 'EMITIDA' ? 'destinatário' : 'emitente'} (somente números)",
+  "partner_name": "razão social do ${nfeType === 'EMITIDA' ? 'destinatário' : 'emitente'}"
+}
+
+IMPORTANTE:
+- Se houver múltiplas notas, retorne um ARRAY de objetos JSON
+- Se houver apenas uma nota, retorne um ARRAY com um objeto
+- Use 0 para campos numéricos não encontrados, nunca null ou undefined
+- Extraia TODOS os valores com máxima precisão
+- Retorne APENAS o JSON, sem texto adicional, sem markdown, sem explicações
+
+JSON:`
+
+    try {
+      const response = await this.client.messages.create({
+        model: 'claude-opus-4-6',
+        max_tokens: 8192,
+        temperature: 0,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              source: {
+                type: 'base64',
+                media_type: 'application/pdf',
+                data: base64
+              }
+            } as any,
+            {
+              type: 'text',
+              text: prompt
+            }
+          ]
+        }]
+      })
+
+      const rawText = response.content[0].type === 'text' ? response.content[0].text.trim() : ''
+
+      // Remove possíveis markdown code blocks
+      const jsonText = rawText.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim()
+
+      let parsed: any
+      try {
+        parsed = JSON.parse(jsonText)
+      } catch {
+        // Tenta extrair JSON do texto
+        const match = jsonText.match(/\[[\s\S]*\]|\{[\s\S]*\}/)
+        if (!match) throw new Error('Resposta do Claude não contém JSON válido')
+        parsed = JSON.parse(match[0])
+      }
+
+      const nfes: any[] = Array.isArray(parsed) ? parsed : [parsed]
+
+      return nfes.map((nfe, idx) => this.normalizePDFExtraction(nfe, nfeType, idx))
+
+    } catch (error: any) {
+      console.error('❌ Erro ao extrair NFe de PDF via Claude:', error?.message)
+      throw new Error(`Falha na extração de PDF: ${error?.message}`)
+    }
+  }
+
+  /**
+   * Normaliza e valida os dados extraídos do PDF pelo Claude
+   */
+  private normalizePDFExtraction(nfe: any, nfeType: 'EMITIDA' | 'RECEBIDA', idx: number): NFeData {
+    const toNum = (v: any) => typeof v === 'number' ? v : parseFloat(String(v || '0').replace(',', '.')) || 0
+    const toStr = (v: any) => String(v || '').trim()
+
+    // Chave determinística se não encontrada
+    const nfeKey = toStr(nfe.nfe_key).replace(/\D/g, '') ||
+      `PDF_${toStr(nfe.nfe_number)}_${toStr(nfe.partner_cnpj_cpf).replace(/\D/g, '').slice(0, 8)}_${idx}`
+
+    return {
+      nfe_number: toStr(nfe.nfe_number),
+      nfe_series: toStr(nfe.nfe_series) || '1',
+      nfe_key: nfeKey,
+      nfe_date: this.formatDate(toStr(nfe.nfe_date)),
+      total_value: toNum(nfe.total_value),
+      base_calculo_icms: toNum(nfe.base_calculo_icms),
+      valor_icms: toNum(nfe.valor_icms),
+      base_calculo_issqn: toNum(nfe.base_calculo_issqn),
+      valor_issqn: toNum(nfe.valor_issqn),
+      valor_pis: toNum(nfe.valor_pis),
+      valor_cofins: toNum(nfe.valor_cofins),
+      cfop: toStr(nfe.cfop) || '5102',
+      partner_cnpj_cpf: toStr(nfe.partner_cnpj_cpf).replace(/\D/g, ''),
+      partner_name: toStr(nfe.partner_name)
+    }
+  }
+
+  /**
    * Extrai dados de uma NFe (XML)
-   * @param xmlContent Conteúdo do XML da NFe
-   * @param nfeType 'EMITIDA' ou 'RECEBIDA'
    */
   async extractFromXML(xmlContent: string, nfeType: 'EMITIDA' | 'RECEBIDA'): Promise<NFeData> {
     try {
       const result = await this.parser.parseStringPromise(xmlContent)
-
-      // Estrutura padrão da NFe brasileira
       const nfe = result.nfeProc?.NFe || result.NFe
-
-      if (!nfe) {
-        throw new Error('XML não é uma NFe válida (padrão)')
-      }
-
+      if (!nfe) throw new Error('XML não é uma NFe válida (padrão)')
       return this.extractStandardNFe(nfe, nfeType)
-
     } catch (error) {
       console.error('❌ Erro ao extrair dados da NFe:', error)
       throw new Error(`Erro ao processar XML da NFe: ${error}`)
@@ -65,35 +217,29 @@ export class NFeExtractorAgent {
   }
 
   /**
-   * Extrai múltiplas NFes de um único arquivo XML (suporte a lote/batch)
-   * Aceita: padrão nfeProc/NFe individual, ou formato batch <nfes><nfe>...</nfe></nfes>
+   * Extrai múltiplas NFes de um único arquivo XML
    */
   async extractFromXMLBatch(xmlContent: string, nfeType: 'EMITIDA' | 'RECEBIDA'): Promise<NFeData[]> {
     try {
       const result = await this.parser.parseStringPromise(xmlContent)
 
-      console.log('   🔍 XML root keys:', Object.keys(result))
-
-      // Formato batch simplificado: <nfes><nfe>...</nfe></nfes>
+      // Formato batch simplificado
       if (result.nfes?.nfe) {
         const nfes = Array.isArray(result.nfes.nfe) ? result.nfes.nfe : [result.nfes.nfe]
         return nfes.map((nfe: any) => this.extractSimplifiedNFe(nfe, nfeType))
       }
 
-      // Formato padrão SEFAZ: <nfeProc><NFe>...</NFe></nfeProc>
-      // Com stripPrefix, namespace é removido. Pode ter múltiplas <NFe> num só arquivo.
+      // Formato padrão SEFAZ
       const nfeContent = result.nfeProc?.NFe || result.NFe
       if (nfeContent) {
-        // Se é um array (múltiplas NFes no mesmo arquivo)
         if (Array.isArray(nfeContent)) {
           console.log(`   📦 Encontradas ${nfeContent.length} NFes no arquivo`)
           return nfeContent.map((nfe: any) => this.extractStandardNFe(nfe, nfeType))
         }
-        // NFe única
         return [this.extractStandardNFe(nfeContent, nfeType)]
       }
 
-      console.warn('⚠️ XML sem NFes reconhecíveis. Root keys:', Object.keys(result))
+      console.warn('⚠️ XML sem NFes reconhecíveis')
       return []
     } catch (error) {
       console.error('❌ Erro ao extrair batch de NFes:', error)
@@ -101,16 +247,12 @@ export class NFeExtractorAgent {
     }
   }
 
-  /**
-   * Extrai dados do formato padrão SEFAZ (nfeProc/NFe)
-   */
   private extractStandardNFe(nfe: any, nfeType: 'EMITIDA' | 'RECEBIDA'): NFeData {
     const infNFe = nfe.infNFe || nfe
     const ide = infNFe.ide || {}
     const total = infNFe.total?.ICMSTot || {}
     const partner = nfeType === 'EMITIDA' ? infNFe?.dest : infNFe?.emit
 
-    // nfe_key pode estar como atributo Id do infNFe (mergeAttrs coloca no mesmo nível)
     const rawKey = infNFe.Id || infNFe.id || ''
     const nfeKey = String(rawKey).replace('NFe', '')
 
@@ -132,10 +274,6 @@ export class NFeExtractorAgent {
     }
   }
 
-  /**
-   * Extrai dados de formato simplificado (<nfe> com campos diretos)
-   * Formato: <nfe><numero>1001</numero><valor>25000</valor>...</nfe>
-   */
   private extractSimplifiedNFe(nfe: any, nfeType: 'EMITIDA' | 'RECEBIDA'): NFeData {
     return {
       nfe_number: String(nfe.numero || nfe.nNF || ''),
@@ -156,28 +294,19 @@ export class NFeExtractorAgent {
     }
   }
 
-  /**
-   * Processa múltiplos XMLs (por exemplo, de um ZIP)
-   */
   async extractMultiple(xmlContents: string[], nfeType: 'EMITIDA' | 'RECEBIDA'): Promise<NFeData[]> {
     const results: NFeData[] = []
-
     for (const xml of xmlContents) {
       try {
         const data = await this.extractFromXML(xml, nfeType)
         results.push(data)
       } catch (error) {
         console.error('Erro ao processar uma NFe:', error)
-        // Continua processando as outras mesmo se uma falhar
       }
     }
-
     return results
   }
 
-  /**
-   * Calcula totais agregados
-   */
   calculateTotals(nfes: NFeData[]): {
     total_receita: number
     total_icms: number
@@ -194,42 +323,27 @@ export class NFeExtractorAgent {
     }
   }
 
-  // Helper functions
   private formatDate(dateString: any): string {
-    if (!dateString) return 'N/A'
-    // Converte de "2025-01-15T10:30:00-03:00" para "2025-01-15"
-    return dateString.split('T')[0]
+    if (!dateString) return new Date().toISOString().split('T')[0]
+    return String(dateString).split('T')[0]
   }
 
   private extractCFOP(det: any): string {
     if (Array.isArray(det)) {
-      // Se tem múltiplos itens, pega CFOP do primeiro
-      return det[0]?.prod?.CFOP || ''
-    } else {
-      // Se tem apenas um item
-      return det?.prod?.CFOP || ''
+      // Coleta todos os CFOPs únicos do documento
+      const cfops = det.map((item: any) => item?.prod?.CFOP).filter(Boolean)
+      return cfops[0] || ''
     }
+    return det?.prod?.CFOP || ''
   }
 
   /**
-   * Validação básica do XML antes de processar
+   * Detecta se o arquivo é PDF pelo magic bytes ou extensão
    */
-  validateXML(xmlContent: string): boolean {
-    // Verificações básicas
-    if (!xmlContent || xmlContent.trim() === '') {
-      return false
+  static isPDF(filePathOrBuffer: string | Buffer): boolean {
+    if (Buffer.isBuffer(filePathOrBuffer)) {
+      return filePathOrBuffer.slice(0, 4).toString() === '%PDF'
     }
-
-    // Deve conter tags NFe
-    if (!xmlContent.includes('<NFe') && !xmlContent.includes('<nfeProc')) {
-      return false
-    }
-
-    // Deve ter chave de acesso
-    if (!xmlContent.includes('Id="NFe')) {
-      return false
-    }
-
-    return true
+    return path.extname(filePathOrBuffer).toLowerCase() === '.pdf'
   }
 }

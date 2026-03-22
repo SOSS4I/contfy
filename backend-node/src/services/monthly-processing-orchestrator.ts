@@ -230,16 +230,22 @@ export class MonthlyProcessingOrchestrator {
       const failedDocs: string[] = []
       const nfeEmitidasRecords: Parameters<typeof prisma.clientNFeData.create>[0]['data'][] = []
       for (const doc of nfesEmitidasDocs) {
-        let xmlContent: string
+        let nfeDataList: any[] = []
         try {
-          xmlContent = fs.readFileSync(doc.filePath, 'utf-8')
+          const isPDF = NFeExtractorAgent.isPDF(doc.filePath)
+          if (isPDF) {
+            console.log(`   📄 Arquivo PDF detectado: ${doc.fileName} — usando Claude Opus`)
+            nfeDataList = await this.agent3.extractFromPDF(doc.filePath, 'EMITIDA')
+          } else {
+            const xmlContent = fs.readFileSync(doc.filePath, 'utf-8')
+            nfeDataList = await this.agent3.extractFromXMLBatch(xmlContent, 'EMITIDA')
+          }
         } catch (readErr: any) {
-          console.error(`❌ Erro ao ler arquivo ${doc.filePath}:`, readErr.message)
+          console.error(`❌ Erro ao processar arquivo ${doc.filePath}:`, readErr.message)
           failedDocs.push(doc.fileName)
           continue
         }
-        // Usar extractFromXMLBatch para suportar múltiplas NFes em um único arquivo
-        const nfeDataList = await this.agent3.extractFromXMLBatch(xmlContent, 'EMITIDA')
+        // nfeDataList já está populado
         for (const nfeData of nfeDataList) {
           nfesEmitidas.push(nfeData)
           nfeEmitidasRecords.push({
@@ -269,15 +275,21 @@ export class MonthlyProcessingOrchestrator {
       })
       const nfeRecebidasRecords: Parameters<typeof prisma.clientNFeData.create>[0]['data'][] = []
       for (const doc of nfesRecebidasDocs) {
-        let xmlContent: string
+        let nfeDataList: any[] = []
         try {
-          xmlContent = fs.readFileSync(doc.filePath, 'utf-8')
+          const isPDF = NFeExtractorAgent.isPDF(doc.filePath)
+          if (isPDF) {
+            console.log(`   📄 Arquivo PDF detectado: ${doc.fileName} — usando Claude Opus`)
+            nfeDataList = await this.agent3.extractFromPDF(doc.filePath, 'RECEBIDA')
+          } else {
+            const xmlContent = fs.readFileSync(doc.filePath, 'utf-8')
+            nfeDataList = await this.agent3.extractFromXMLBatch(xmlContent, 'RECEBIDA')
+          }
         } catch (readErr: any) {
-          console.error(`❌ Erro ao ler arquivo ${doc.filePath}:`, readErr.message)
+          console.error(`❌ Erro ao processar arquivo ${doc.filePath}:`, readErr.message)
           failedDocs.push(doc.fileName)
           continue
         }
-        const nfeDataList = await this.agent3.extractFromXMLBatch(xmlContent, 'RECEBIDA')
         for (const nfeData of nfeDataList) {
           nfesRecebidas.push(nfeData)
           nfeRecebidasRecords.push({
