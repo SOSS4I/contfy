@@ -60,7 +60,8 @@ export async function getClientesPendentes(req: Request, res: Response) {
     const clientes = await prisma.client.findMany({
       where: {
         OR: [
-          { isVerified: false },
+          { accountingConfig: { status: { not: 'APPROVED' } } },
+          { accountingConfig: null },
           {
             documents: {
               some: {
@@ -73,6 +74,7 @@ export async function getClientesPendentes(req: Request, res: Response) {
         ]
       },
       include: {
+        accountingConfig: { select: { status: true } },
         _count: {
           select: {
             documents: {
@@ -89,14 +91,17 @@ export async function getClientesPendentes(req: Request, res: Response) {
       orderBy: { createdAt: 'desc' }
     });
 
-    const clientesFormatados = clientes.map(cliente => ({
-      id: cliente.id.toString(),
-      name: cliente.name || cliente.razaoSocial || 'Sem nome',
-      cnpj: cliente.cnpj || 'Sem CNPJ',
-      status: cliente.isVerified ? 'ativo' : 'pendente',
-      aprovado: cliente.isVerified || false,
-      docs_pendentes: cliente._count.documents
-    }));
+    const clientesFormatados = clientes.map(cliente => {
+      const configAprovada = (cliente as any).accountingConfig?.status === 'APPROVED';
+      return {
+        id: cliente.id.toString(),
+        name: cliente.name || cliente.razaoSocial || 'Sem nome',
+        cnpj: cliente.cnpj || 'Sem CNPJ',
+        status: configAprovada ? 'ativo' : 'pendente',
+        aprovado: configAprovada,
+        docs_pendentes: cliente._count.documents
+      };
+    });
 
     return res.status(200).json({
       success: true,
@@ -201,6 +206,11 @@ export async function getAllClientes(req: Request, res: Response) {
             email: true
           }
         },
+        accountingConfig: {
+          select: {
+            status: true
+          }
+        },
         _count: {
           select: {
             documents: {
@@ -238,11 +248,14 @@ export async function getAllClientes(req: Request, res: Response) {
       const docsProcessados = docsProcessadosMap.get(cliente.id) ?? 0;
       const proximoCiclo = cliente.monthlyCycles[0] ?? null;
 
-      // Definir status baseado em verificação e atividade
+      // Aprovação baseada no ClientAccountingConfig (não em isVerified)
+      const configAprovada = (cliente as any).accountingConfig?.status === 'APPROVED';
+
+      // Definir status baseado em configuração e atividade
       let statusCliente: 'ativo' | 'pendente' | 'inativo' | 'problema' = 'ativo';
       if (!cliente.isActive) {
         statusCliente = 'inativo';
-      } else if (!cliente.isVerified) {
+      } else if (!configAprovada) {
         statusCliente = 'pendente';
       } else if (cliente._count.documents > 5) {
         statusCliente = 'problema';
@@ -250,13 +263,13 @@ export async function getAllClientes(req: Request, res: Response) {
 
       // Identificar problemas
       const problemas: string[] = [];
-      if (!cliente.isVerified) {
+      if (!configAprovada) {
         problemas.push('Aguardando aprovação');
       }
       if (cliente._count.documents > 5) {
         problemas.push(`${cliente._count.documents} documentos pendentes`);
       }
-      if (!cliente.contadorId) {
+      if (!cliente.contador) {
         problemas.push('Sem contador vinculado');
       }
 
@@ -266,7 +279,7 @@ export async function getAllClientes(req: Request, res: Response) {
         cnpj: cliente.cnpj || 'Sem CNPJ',
         regime_tributario: cliente.regimeTributario || 'Não informado',
         status: statusCliente,
-        aprovado: cliente.isVerified || false,
+        aprovado: configAprovada,
         docs_pendentes: cliente._count.documents,
         docs_processados: docsProcessados,
         ultimo_envio: cliente.updatedAt.toISOString().split('T')[0],
