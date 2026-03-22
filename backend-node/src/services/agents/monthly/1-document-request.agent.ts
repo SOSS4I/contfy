@@ -157,8 +157,10 @@ Retorne APENAS o JSON, sem explicações.`
       mandatory: true
     })
 
-    // Folha de Pagamento - SE tem funcionários OU Anexo III/V
-    if (config.hasEmployees || config.anexoSimples === 'III' || config.anexoSimples === 'V') {
+    // Folha de Pagamento - SE tem funcionários OU tem pró-labore OU Anexo III/V
+    const needsFolha = config.hasEmployees || config.hasProlabore ||
+                       config.anexoSimples === 'III' || config.anexoSimples === 'V'
+    if (needsFolha) {
       documents.push({
         type: 'FOLHA_PAGAMENTO',
         name: 'Folha de Pagamento',
@@ -167,7 +169,9 @@ Retorne APENAS o JSON, sem explicações.`
         mandatory: true,
         reason: config.anexoSimples === 'III' || config.anexoSimples === 'V'
           ? 'Necessário para cálculo do Fator R'
-          : 'Necessário para apuração de encargos'
+          : config.hasProlabore
+            ? 'Necessário para apuração de pró-labore e encargos'
+            : 'Necessário para apuração de encargos'
       })
     }
 

@@ -196,6 +196,7 @@ export class TaxCalculatorSimplesAgent {
   private calculateBreakdown(valor: number, anexo: string, aliquotaEfetiva: number): any {
     // Distribuição APROXIMADA dos tributos conforme legislação
     // Fonte: Resolução CGSN 140/2018 e LC 123/2006
+    // Percentuais conforme tabela do Simples Nacional - aproximados por faixa
 
     const breakdown: any = {
       IRPJ: 0,
@@ -205,8 +206,8 @@ export class TaxCalculatorSimplesAgent {
       CPP: 0
     }
 
-    // Percentuais médios de cada imposto dentro do total
-    // Anexo I (Comércio)
+    // Percentuais médios de cada imposto dentro do total (devem somar 100%)
+    // Anexo I (Comércio): 5+4+12+3+41+35 = 100%
     if (anexo === 'I') {
       breakdown.IRPJ = valor * 0.05
       breakdown.CSLL = valor * 0.04
@@ -215,7 +216,7 @@ export class TaxCalculatorSimplesAgent {
       breakdown.CPP = valor * 0.41
       breakdown.ICMS = valor * 0.35
     }
-    // Anexo II (Indústria)
+    // Anexo II (Indústria): 5+5+11+3+38+38 = 100%
     else if (anexo === 'II') {
       breakdown.IRPJ = valor * 0.05
       breakdown.CSLL = valor * 0.05
@@ -224,7 +225,7 @@ export class TaxCalculatorSimplesAgent {
       breakdown.CPP = valor * 0.38
       breakdown.ICMS = valor * 0.38
     }
-    // Anexo III (Serviços com Fator R ≥ 28%)
+    // Anexo III (Serviços com Fator R >= 28%): 4+4+12+2+43+35 = 100%
     else if (anexo === 'III') {
       breakdown.IRPJ = valor * 0.04
       breakdown.CSLL = valor * 0.04
@@ -233,7 +234,7 @@ export class TaxCalculatorSimplesAgent {
       breakdown.CPP = valor * 0.43
       breakdown.ISS = valor * 0.35
     }
-    // Anexo V (Serviços com Fator R < 28%)
+    // Anexo V (Serviços com Fator R < 28%): 25+15+14+4+28+14 = 100%
     else if (anexo === 'V') {
       breakdown.IRPJ = valor * 0.25
       breakdown.CSLL = valor * 0.15
@@ -243,9 +244,19 @@ export class TaxCalculatorSimplesAgent {
       breakdown.ISS = valor * 0.14
     }
 
+    // Verificar e normalizar para garantir que a soma bate com o valor total
+    // (proteção contra desvios de arredondamento)
+    const sumBreakdown = Object.values(breakdown).reduce((s: number, v: any) => s + (v as number), 0)
+    if (sumBreakdown > 0 && Math.abs(sumBreakdown - valor) > 0.02) {
+      const factor = valor / sumBreakdown
+      Object.keys(breakdown).forEach(key => {
+        breakdown[key] = (breakdown[key] as number) * factor
+      })
+    }
+
     // Arredondar valores
     Object.keys(breakdown).forEach(key => {
-      breakdown[key] = parseFloat(breakdown[key].toFixed(2))
+      breakdown[key] = parseFloat((breakdown[key] as number).toFixed(2))
     })
 
     return breakdown

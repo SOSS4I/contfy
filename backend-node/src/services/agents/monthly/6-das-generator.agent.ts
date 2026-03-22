@@ -100,9 +100,12 @@ export class DASGeneratorAgent {
         doc.text(`Vencimento: ${this.formatDate(data.vencimento)}`, { align: 'center' })
         doc.moveDown(2)
 
-        // Código de barras (simulado)
-        doc.fontSize(8)
-        doc.text('CÓDIGO DE BARRAS', { align: 'center' })
+        // Código de barras (simulação — NÃO use para pagamento real)
+        doc.fontSize(8).fillColor('red')
+        doc.text('⚠️ ATENÇÃO: CÓDIGO DE BARRAS PARA SIMULAÇÃO APENAS', { align: 'center' })
+        doc.text('Para pagamento real, gere o DAS via portal do Simples Nacional (simei.receita.fazenda.gov.br)', { align: 'center' })
+        doc.fillColor('black')
+        doc.moveDown(0.5)
         doc.fontSize(10)
         doc.font('Courier')
         doc.text(this.generateBarcode(data), { align: 'center' })
@@ -218,10 +221,22 @@ export class DASGeneratorAgent {
   }
 
   private generateBarcode(data: DASData): string {
-    // Simulação de código de barras (na prática seria gerado conforme padrão Febraban)
+    // PLACEHOLDER: Código de barras para simulação apenas.
+    // Na produção, o código de barras real deve ser gerado via API da Receita Federal
+    // ou portal do Simples Nacional. Este código NÃO é válido para pagamento.
     const cnpj = data.cnpj.replace(/\D/g, '')
     const valor = Math.round(data.valor_total * 100).toString().padStart(10, '0')
     const vencimento = data.vencimento.replace(/-/g, '')
-    return `${cnpj}${valor}${vencimento}`.substring(0, 47).padEnd(47, '0')
+    return `[SIMULACAO]${cnpj}${valor}${vencimento}`.substring(0, 47).padEnd(47, '0')
+  }
+
+  /**
+   * Metadados de aviso sobre o caráter simulado do DAS gerado
+   */
+  getDASWarningMetadata(): { payment_ready: boolean; barcode_note: string } {
+    return {
+      payment_ready: false,
+      barcode_note: 'Código de barras para simulação. Para pagamento real, gere via sistema da Receita Federal.'
+    }
   }
 }

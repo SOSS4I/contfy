@@ -121,10 +121,17 @@ export class AccountingJournalAgent {
       document_ref: `DAS_${referenceMonth}_${referenceYear}`
     })
 
-    // Calcular totais
+    // Validar lançamentos: cada entrada tem um débito e crédito de mesmo valor,
+    // portanto o diário é SEMPRE balanceado por design (D = C para cada lançamento).
+    // A validação real verifica:
+    // 1. Nenhum lançamento com valor <= 0
+    // 2. Todas as contas debitadas/creditadas são strings não-vazias
+    // 3. Total geral é > 0
+    const invalidEntries = entries.filter(e => e.value <= 0)
+    const missingAccounts = entries.filter(e => !e.account_debit || !e.account_credit)
     const totalDebits = entries.reduce((sum, entry) => sum + entry.value, 0)
-    const totalCredits = entries.reduce((sum, entry) => sum + entry.value, 0)
-    const balanced = Math.abs(totalDebits - totalCredits) < 0.01 // Tolerância de 1 centavo
+    const totalCredits = totalDebits // Por design: cada entry tem um D e um C de mesmo valor
+    const balanced = invalidEntries.length === 0 && missingAccounts.length === 0 && totalDebits > 0
 
     return {
       entries,

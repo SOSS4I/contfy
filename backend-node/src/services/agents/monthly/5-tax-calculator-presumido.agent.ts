@@ -179,9 +179,12 @@ export class TaxCalculatorPresumidoAgent {
   }
 
   private getUltimoDiaUtil(ano: number, mes: number): string {
-    // Simplificado: sempre dia 30 (na prática seria último dia útil)
+    // Retorna o último dia real do mês (corrige o bug que sempre retornava dia 30,
+    // o que é inválido em Fevereiro e meses com 31 dias).
+    // Nota: feriados bancários não são considerados (implementação futura).
     const mesAjustado = mes > 12 ? mes - 12 : mes
     const anoAjustado = mes > 12 ? ano + 1 : ano
-    return `${anoAjustado}-${String(mesAjustado).padStart(2, '0')}-30`
+    const lastDay = new Date(anoAjustado, mesAjustado, 0).getDate() // Último dia do mês
+    return `${anoAjustado}-${String(mesAjustado).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
   }
 }

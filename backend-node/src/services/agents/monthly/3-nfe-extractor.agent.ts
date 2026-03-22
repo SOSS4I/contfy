@@ -140,7 +140,8 @@ export class NFeExtractorAgent {
     return {
       nfe_number: String(nfe.numero || nfe.nNF || ''),
       nfe_series: String(nfe.serie || '1'),
-      nfe_key: String(nfe.chave || nfe.key || `SIMPLIFIED_${Date.now()}_${Math.random().toString(36).slice(2,8)}`),
+      nfe_key: String(nfe.chave || nfe.key ||
+        `SIMPLIFIED_${(nfe.nNF || nfe.numero || '0')}_${(nfe.CNPJ || nfe.cnpj || '0')}_${(nfe.dhEmi || nfe.data || '').replace(/\D/g, '').slice(0, 8)}`),
       nfe_date: this.formatDate(nfe.data || nfe.dhEmi || nfe.dEmi || new Date().toISOString()),
       total_value: parseFloat(nfe.valor || nfe.total_value || nfe.vNF || '0') || 0,
       base_calculo_icms: parseFloat(nfe.base_icms || '0') || 0,

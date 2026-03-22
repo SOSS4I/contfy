@@ -227,32 +227,37 @@ export class MonthlyProcessingOrchestrator {
         const t = (d.documentType || '').toUpperCase()
         return t === 'NFE_EMITIDAS' || t === 'NFE_EMITIDA' || t === 'NFE EMITIDAS'
       })
+      const failedDocs: string[] = []
+      const nfeEmitidasRecords: Parameters<typeof prisma.clientNFeData.create>[0]['data'][] = []
       for (const doc of nfesEmitidasDocs) {
-        const xmlContent = fs.readFileSync(doc.filePath, 'utf-8')
+        let xmlContent: string
+        try {
+          xmlContent = fs.readFileSync(doc.filePath, 'utf-8')
+        } catch (readErr: any) {
+          console.error(`❌ Erro ao ler arquivo ${doc.filePath}:`, readErr.message)
+          failedDocs.push(doc.fileName)
+          continue
+        }
         // Usar extractFromXMLBatch para suportar múltiplas NFes em um único arquivo
         const nfeDataList = await this.agent3.extractFromXMLBatch(xmlContent, 'EMITIDA')
         for (const nfeData of nfeDataList) {
           nfesEmitidas.push(nfeData)
-
-          // Salvar no banco
-          await prisma.clientNFeData.create({
-            data: {
-              document_id: doc.id,
-              cycle_id: cycle.id,
-              clientId: cycle.clientId,
-              nfeType: 'EMITIDA',
-              nfeKey: nfeData.nfe_key,
-              nfeNumber: nfeData.nfe_number,
-              nfe_series: nfeData.nfe_series,
-              nfeDate: new Date(nfeData.nfe_date),
-              partnerName: nfeData.partner_name,
-              partner_cnpj_cpf: nfeData.partner_cnpj_cpf,
-              totalValue: nfeData.total_value,
-              valorIcms: nfeData.valor_icms,
-              valorPis: nfeData.valor_pis,
-              valorCofins: nfeData.valor_cofins,
-              cfop: nfeData.cfop
-            }
+          nfeEmitidasRecords.push({
+            document_id: doc.id,
+            cycle_id: cycle.id,
+            clientId: cycle.clientId,
+            nfeType: 'EMITIDA',
+            nfeKey: nfeData.nfe_key,
+            nfeNumber: nfeData.nfe_number,
+            nfe_series: nfeData.nfe_series,
+            nfeDate: new Date(nfeData.nfe_date),
+            partnerName: nfeData.partner_name,
+            partner_cnpj_cpf: nfeData.partner_cnpj_cpf,
+            totalValue: nfeData.total_value,
+            valorIcms: nfeData.valor_icms,
+            valorPis: nfeData.valor_pis,
+            valorCofins: nfeData.valor_cofins,
+            cfop: nfeData.cfop
           })
         }
       }
@@ -262,32 +267,49 @@ export class MonthlyProcessingOrchestrator {
         const t = (d.documentType || '').toUpperCase()
         return t === 'NFE_RECEBIDAS' || t === 'NFE_RECEBIDA' || t === 'NFE RECEBIDAS'
       })
+      const nfeRecebidasRecords: Parameters<typeof prisma.clientNFeData.create>[0]['data'][] = []
       for (const doc of nfesRecebidasDocs) {
-        const xmlContent = fs.readFileSync(doc.filePath, 'utf-8')
+        let xmlContent: string
+        try {
+          xmlContent = fs.readFileSync(doc.filePath, 'utf-8')
+        } catch (readErr: any) {
+          console.error(`❌ Erro ao ler arquivo ${doc.filePath}:`, readErr.message)
+          failedDocs.push(doc.fileName)
+          continue
+        }
         const nfeDataList = await this.agent3.extractFromXMLBatch(xmlContent, 'RECEBIDA')
         for (const nfeData of nfeDataList) {
           nfesRecebidas.push(nfeData)
-
-          await prisma.clientNFeData.create({
-            data: {
-              document_id: doc.id,
-              cycle_id: cycle.id,
-              clientId: cycle.clientId,
-              nfeType: 'RECEBIDA',
-              nfeKey: nfeData.nfe_key,
-              nfeNumber: nfeData.nfe_number,
-              nfe_series: nfeData.nfe_series,
-              nfeDate: new Date(nfeData.nfe_date),
-              partnerName: nfeData.partner_name,
-              partner_cnpj_cpf: nfeData.partner_cnpj_cpf,
-              totalValue: nfeData.total_value,
-              valorIcms: nfeData.valor_icms,
-              valorPis: nfeData.valor_pis,
-              valorCofins: nfeData.valor_cofins,
-              cfop: nfeData.cfop
-            }
+          nfeRecebidasRecords.push({
+            document_id: doc.id,
+            cycle_id: cycle.id,
+            clientId: cycle.clientId,
+            nfeType: 'RECEBIDA',
+            nfeKey: nfeData.nfe_key,
+            nfeNumber: nfeData.nfe_number,
+            nfe_series: nfeData.nfe_series,
+            nfeDate: new Date(nfeData.nfe_date),
+            partnerName: nfeData.partner_name,
+            partner_cnpj_cpf: nfeData.partner_cnpj_cpf,
+            totalValue: nfeData.total_value,
+            valorIcms: nfeData.valor_icms,
+            valorPis: nfeData.valor_pis,
+            valorCofins: nfeData.valor_cofins,
+            cfop: nfeData.cfop
           })
         }
+      }
+
+      // Salvar todos os registros de NFe atomicamente em uma única transação
+      const allNfeRecords = [...nfeEmitidasRecords, ...nfeRecebidasRecords]
+      if (allNfeRecords.length > 0) {
+        await prisma.$transaction(
+          allNfeRecords.map(record => prisma.clientNFeData.create({ data: record as any }))
+        )
+      }
+
+      if (failedDocs.length > 0) {
+        console.warn(`⚠️ Arquivos ignorados por erro de leitura: ${failedDocs.join(', ')}`)
       }
 
       // IMPORTANTE: Calcular totais separadamente!

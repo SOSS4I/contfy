@@ -65,8 +65,15 @@ export class TaxConsistencyValidator {
       console.log(`   💰 Receita NFes: R$ ${revenueNFe.toFixed(2)}`)
 
       // Validação 3: Obter receita do cálculo de impostos
+      // Agent 5 (Presumido) usa receita_trimestre e receita_mes; Agent 4 (Simples) usa receita_mes.
+      // Para a comparação com as NFes do mês, sempre usamos receita_mes.
+      const regime = clientConfig?.regimeTributario || ''
+      const receitaBase = regime === 'LUCRO_PRESUMIDO'
+        ? (taxCalculation.receita_trimestre || taxCalculation.receita_mes || revenueNFe)
+        : (taxCalculation.receita_12m || taxCalculation.receita_12_meses || revenueNFe * 12)
       const revenueTaxCalc = taxCalculation.receita_mes || taxCalculation.receita_bruta || 0
       console.log(`   💰 Receita Impostos: R$ ${revenueTaxCalc.toFixed(2)}`)
+      console.log(`   💰 Base de receita (${regime}): R$ ${receitaBase.toFixed(2)}`)
 
       // Validação 4: Verificar diferença (tolerância de 0.5%)
       const difference = Math.abs(revenueNFe - revenueTaxCalc)
@@ -122,7 +129,8 @@ export class TaxConsistencyValidator {
       let withinLimits = true
 
       if (clientConfig?.regimeTributario === 'SIMPLES_NACIONAL') {
-        const receita12Meses = taxCalculation.receita_12_meses || revenueNFe * 12
+        // Agent 4 usa receita_12m; fallback para projeção anual se não disponível
+        const receita12Meses = taxCalculation.receita_12m || taxCalculation.receita_12_meses || revenueNFe * 12
         const LIMITE_SIMPLES = 4800000 // R$ 4.8M
 
         if (receita12Meses > LIMITE_SIMPLES) {

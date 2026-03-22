@@ -68,7 +68,8 @@ export class ReportGeneratorAgent {
     impostos: any,
     historico?: any[], // Meses anteriores
     referenceMonth?: number,
-    referenceYear?: number
+    referenceYear?: number,
+    accountingEntries?: any[] // Lançamentos contábeis do Agent 7
   ): Promise<MonthlyReport> {
 
     // Calcular DRE
@@ -81,10 +82,29 @@ export class ReportGeneratorAgent {
     const custos = nfesRecebidas.reduce((sum, nfe) => sum + nfe.total_value, 0)
     const lucroBruto = receitaLiquida - custos
 
+    // Calcular despesas operacionais a partir dos lançamentos contábeis (Agent 7).
+    // Contas de despesa no plano de contas brasileiro iniciam com "3" (grupo de resultado/despesas).
+    // Excluímos o lançamento de DAS/impostos (conta 3.2.2.01) para evitar dupla contagem com impostosTotal.
+    let despesasOperacionais = 0
+    if (accountingEntries && accountingEntries.length > 0) {
+      despesasOperacionais = accountingEntries.reduce((sum: number, entry: any) => {
+        const acct = String(entry.account_debit || '')
+        // Inclui contas de despesa (3.x.x.xx) exceto impostos (3.2.2.xx = DAS/tributos)
+        if (acct.startsWith('3') && !acct.startsWith('3.2.2')) {
+          return sum + (entry.value || 0)
+        }
+        return sum
+      }, 0)
+    }
+    // Se não há lançamentos disponíveis, despesas_operacionais fica zero
+    // (dados de despesas operacionais não são extraídos das NFes neste fluxo)
+
     const impostosTotal = impostos.valor_a_pagar || impostos.valor_total || 0
-    const lucroLiquido = lucroBruto - impostosTotal
+    const lucroOperacional = lucroBruto - despesasOperacionais
+    const lucroLiquido = lucroOperacional - impostosTotal
 
     const margemLiquida = receitaBruta > 0 ? (lucroLiquido / receitaBruta) * 100 : 0
+
 
     // Comparação com mês anterior
     let faturamentoVsMesAnterior = 0
@@ -142,8 +162,8 @@ export class ReportGeneratorAgent {
         receita_liquida: parseFloat(receitaLiquida.toFixed(2)),
         custos: parseFloat(custos.toFixed(2)),
         lucro_bruto: parseFloat(lucroBruto.toFixed(2)),
-        despesas_operacionais: 0, // Não temos dados de despesas operacionais
-        lucro_operacional: parseFloat(lucroBruto.toFixed(2)),
+        despesas_operacionais: parseFloat(despesasOperacionais.toFixed(2)),
+        lucro_operacional: parseFloat(lucroOperacional.toFixed(2)),
         impostos: parseFloat(impostosTotal.toFixed(2)),
         lucro_liquido: parseFloat(lucroLiquido.toFixed(2)),
         margem_liquida: parseFloat(margemLiquida.toFixed(2))
