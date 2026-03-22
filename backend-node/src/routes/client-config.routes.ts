@@ -1,16 +1,16 @@
 ﻿import express from 'express'
 import { saveAccountingConfig, getAccountingConfig, updateAccountingConfig } from '../controllers/client-config.controller'
-import { authenticateToken } from '../middleware/auth.middleware'
+import { authenticateToken, requireClienteOwnership } from '../middleware/auth.middleware'
 
 const router = express.Router()
 
-// Salvar configuracao contabil do cliente
-router.post('/:clientId/accounting-config', authenticateToken, saveAccountingConfig)
+// Salvar configuracao contabil do cliente (somente o próprio cliente ou contador)
+router.post('/:clientId/accounting-config', authenticateToken, requireClienteOwnership, saveAccountingConfig)
 
-// Atualizar configuracao contabil do cliente
-router.put('/:clientId/accounting-config', authenticateToken, updateAccountingConfig)
+// Atualizar configuracao contabil do cliente (somente o próprio cliente ou contador)
+router.put('/:clientId/accounting-config', authenticateToken, requireClienteOwnership, updateAccountingConfig)
 
-// Buscar configuracao contabil do cliente
-router.get('/:clientId/accounting-config', authenticateToken, getAccountingConfig)
+// Buscar configuracao contabil do cliente (somente o próprio cliente ou contador)
+router.get('/:clientId/accounting-config', authenticateToken, requireClienteOwnership, getAccountingConfig)
 
 export default router

@@ -453,10 +453,13 @@ export async function verifyTokenEndpoint(req: Request, res: Response) {
 /**
  * REDEFINIR SENHA - Cliente
  * POST /api/v1/auth/cliente/reset-password
+ *
+ * Se o cliente já possui senha, requer `current_password` para confirmação.
+ * Se ainda não possui senha (novo usuário), comporta-se como set-password.
  */
 export async function resetPasswordCliente(req: Request, res: Response) {
   try {
-    const { email, newPassword } = req.body;
+    const { email, newPassword, current_password } = req.body;
 
     // Validação de input
     if (!email || !newPassword) {
@@ -480,11 +483,32 @@ export async function resetPasswordCliente(req: Request, res: Response) {
     });
 
     if (!cliente) {
+      // Resposta genérica para não revelar se email existe
       return res.status(404).json({
         success: false,
         message: 'Email não encontrado no sistema'
       });
     }
+
+    // Se o cliente já possui senha, verificar a senha atual obrigatoriamente
+    if (cliente.passwordHash) {
+      if (!current_password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Senha atual é obrigatória para redefinir a senha'
+        });
+      }
+
+      const senhaAtualValida = await verifyPassword(current_password, cliente.passwordHash);
+      if (!senhaAtualValida) {
+        console.warn(`[SECURITY] Tentativa de reset de senha com senha incorreta - Cliente: ${email} - IP: ${req.ip}`);
+        return res.status(401).json({
+          success: false,
+          message: 'Senha atual incorreta'
+        });
+      }
+    }
+    // Se não possui senha, permite definir diretamente (comportamento de set-password)
 
     // Hash da nova senha
     const passwordHash = await hashPassword(newPassword);
@@ -610,7 +634,7 @@ export async function loginGeneric(req: Request, res: Response) {
       console.log('[AUTH/login] Contador encontrado:', !!contador, contador ? `status=${contador.status}` : '');
     } catch (dbError: any) {
       console.error('[AUTH/login] ERRO DE BANCO ao buscar contador:', dbError?.message);
-      return res.status(500).json({ success: false, message: `Erro de conexão com banco de dados: ${dbError?.message}` });
+      return res.status(500).json({ success: false, message: 'Erro interno no servidor' });
     }
 
     if (contador && contador.status === 'ativo') {
@@ -646,7 +670,7 @@ export async function loginGeneric(req: Request, res: Response) {
       console.log('[AUTH/login] Cliente encontrado:', !!cliente);
     } catch (dbError: any) {
       console.error('[AUTH/login] ERRO DE BANCO ao buscar cliente:', dbError?.message);
-      return res.status(500).json({ success: false, message: `Erro de conexão com banco de dados: ${dbError?.message}` });
+      return res.status(500).json({ success: false, message: 'Erro interno no servidor' });
     }
 
     if (cliente) {
@@ -677,6 +701,6 @@ export async function loginGeneric(req: Request, res: Response) {
 
   } catch (error: any) {
     console.error('[AUTH/login] Erro inesperado:', error?.message, error);
-    return res.status(500).json({ success: false, message: `Erro interno: ${error?.message}` });
+    return res.status(500).json({ success: false, message: 'Erro interno no servidor' });
   }
 }

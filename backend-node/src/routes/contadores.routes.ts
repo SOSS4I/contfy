@@ -10,7 +10,7 @@ import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = Router();
 
-router.post('/', criarContador);
+router.post('/', authenticateToken, criarContador);
 router.get('/codigo/:codigo', authenticateToken, buscarContadorPorCodigo);
 router.post('/vincular', authenticateToken, vincularClienteContador);
 router.put('/:id', authenticateToken, atualizarContador);

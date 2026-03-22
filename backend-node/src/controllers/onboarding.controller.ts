@@ -95,7 +95,7 @@ export async function startOnboarding(req: Request, res: Response) {
 
   } catch (error: any) {
     console.error('Erro ao iniciar onboarding:', error)
-    res.status(500).json({ error: 'Erro ao iniciar onboarding', details: error.message })
+    res.status(500).json({ error: 'Erro interno do servidor' })
   }
 }
 
@@ -112,7 +112,7 @@ export async function getQuestions(req: Request, res: Response) {
 
   } catch (error: any) {
     console.error('Erro ao buscar perguntas:', error)
-    res.status(500).json({ error: 'Erro ao buscar perguntas', details: error.message })
+    res.status(500).json({ error: 'Erro interno do servidor' })
   }
 }
 
@@ -185,7 +185,7 @@ export async function saveResponse(req: Request, res: Response) {
 
   } catch (error: any) {
     console.error('Erro ao salvar resposta:', error)
-    res.status(500).json({ error: 'Erro ao salvar resposta', details: error.message })
+    res.status(500).json({ error: 'Erro interno do servidor' })
   }
 }
 
@@ -344,7 +344,7 @@ export async function completeOnboarding(req: Request, res: Response) {
       })
     }
 
-    res.status(500).json({ error: 'Erro ao processar onboarding', details: error.message })
+    res.status(500).json({ error: 'Erro interno do servidor' })
   }
 }
 
@@ -392,6 +392,6 @@ export async function getOnboardingStatus(req: Request, res: Response) {
 
   } catch (error: any) {
     console.error('Erro ao buscar status:', error)
-    res.status(500).json({ error: 'Erro ao buscar status', details: error.message })
+    res.status(500).json({ error: 'Erro interno do servidor' })
   }
 }

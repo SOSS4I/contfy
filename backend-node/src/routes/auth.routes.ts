@@ -36,10 +36,10 @@ router.post('/cliente/register', registerCliente);
 // Verificar token (rota protegida)
 router.get('/verify', authenticateToken, verifyTokenEndpoint);
 
-// Redefinir senha do cliente
-router.post('/cliente/reset-password', resetPasswordCliente);
+// Redefinir senha do cliente (COM RATE LIMITING - não requer auth)
+router.post('/cliente/reset-password', loginRateLimiter, resetPasswordCliente);
 
-// Definir senha para clientes existentes (sem senha)
-router.post('/cliente/set-password', setPasswordCliente);
+// Definir senha para clientes existentes (sem senha) (COM RATE LIMITING - não requer auth)
+router.post('/cliente/set-password', loginRateLimiter, setPasswordCliente);
 
 export default router;

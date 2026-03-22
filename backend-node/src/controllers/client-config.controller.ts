@@ -137,7 +137,7 @@ export const saveAccountingConfig = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Erro ao salvar configuração:', error)
-    res.status(500).json({ error: 'Erro ao salvar configuração', details: error.message })
+    res.status(500).json({ error: 'Erro interno do servidor' })
   }
 }
 
@@ -219,7 +219,7 @@ export const updateAccountingConfig = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Erro ao atualizar configuração:', error)
-    res.status(500).json({ error: 'Erro ao atualizar configuração', details: error.message })
+    res.status(500).json({ error: 'Erro interno do servidor' })
   }
 }
 
@@ -245,7 +245,7 @@ export const getAccountingConfig = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Erro ao buscar configuração:', error)
-    res.status(500).json({ error: 'Erro ao buscar configuração', details: error.message })
+    res.status(500).json({ error: 'Erro interno do servidor' })
   }
 }
 

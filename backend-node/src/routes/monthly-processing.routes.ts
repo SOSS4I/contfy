@@ -7,7 +7,7 @@ import multer from 'multer'
 import * as path from 'path'
 import * as fs from 'fs'
 import * as controller from '../controllers/monthly-processing.controller'
-import { authenticateToken } from '../middleware/auth.middleware'
+import { authenticateToken, requireClienteOwnership } from '../middleware/auth.middleware'
 
 const router = express.Router()
 
@@ -51,13 +51,13 @@ router.get('/das/:cycle_id', authenticateToken, controller.downloadDAS)
 router.get('/status/:cycle_id', authenticateToken, controller.getProcessingStatus)
 
 // Buscar ciclo ativo de um cliente (com documentos e requisitos)
-router.get('/client/:client_id/active', authenticateToken, controller.getActiveCycle)
+router.get('/client/:client_id/active', authenticateToken, requireClienteOwnership, controller.getActiveCycle)
 
 // Historico de ciclos completados (para pagina de impostos)
-router.get('/client/:client_id/history', authenticateToken, controller.getClientHistory)
+router.get('/client/:client_id/history', authenticateToken, requireClienteOwnership, controller.getClientHistory)
 
 // Listar ciclos de um cliente
-router.get('/client/:client_id', authenticateToken, controller.getClientCycles)
+router.get('/client/:client_id', authenticateToken, requireClienteOwnership, controller.getClientCycles)
 
 // Cancelar processamento
 router.delete('/cancel/:cycle_id', authenticateToken, controller.cancelProcessing)

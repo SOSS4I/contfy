@@ -73,8 +73,7 @@ export async function startMonthlyProcessing(req: Request, res: Response) {
   } catch (error: any) {
     console.error('❌ Erro ao iniciar processamento:', error)
     return res.status(500).json({
-      error: 'Erro ao iniciar processamento mensal',
-      details: error.message
+      error: 'Erro ao iniciar processamento mensal'
     })
   }
 }
@@ -123,8 +122,7 @@ export async function continueProcessing(req: Request, res: Response) {
   } catch (error: any) {
     console.error('❌ Erro ao continuar processamento:', error)
     return res.status(500).json({
-      error: 'Erro ao continuar processamento',
-      details: error.message
+      error: 'Erro ao continuar processamento'
     })
   }
 }
@@ -172,8 +170,7 @@ export async function getProcessingStatus(req: Request, res: Response) {
   } catch (error: any) {
     console.error('❌ Erro ao buscar status:', error)
     return res.status(500).json({
-      error: 'Erro ao buscar status do processamento',
-      details: error.message
+      error: 'Erro ao buscar status do processamento'
     })
   }
 }
@@ -217,8 +214,7 @@ export async function getClientCycles(req: Request, res: Response) {
   } catch (error: any) {
     console.error('❌ Erro ao buscar ciclos:', error)
     return res.status(500).json({
-      error: 'Erro ao buscar ciclos do cliente',
-      details: error.message
+      error: 'Erro ao buscar ciclos do cliente'
     })
   }
 }
@@ -308,8 +304,7 @@ export async function getActiveCycle(req: Request, res: Response) {
   } catch (error: any) {
     console.error('❌ Erro ao buscar ciclo ativo:', error)
     return res.status(500).json({
-      error: 'Erro ao buscar ciclo ativo',
-      details: error.message
+      error: 'Erro ao buscar ciclo ativo'
     })
   }
 }
@@ -345,8 +340,7 @@ export async function downloadDAS(req: Request, res: Response) {
   } catch (error: any) {
     console.error('❌ Erro ao baixar DAS:', error)
     return res.status(500).json({
-      error: 'Erro ao baixar DAS',
-      details: error.message
+      error: 'Erro ao baixar DAS'
     })
   }
 }
@@ -405,8 +399,7 @@ export async function getClientHistory(req: Request, res: Response) {
   } catch (error: any) {
     console.error('❌ Erro ao buscar histórico:', error)
     return res.status(500).json({
-      error: 'Erro ao buscar histórico',
-      details: error.message
+      error: 'Erro ao buscar histórico'
     })
   }
 }
@@ -503,8 +496,7 @@ export async function uploadDocument(req: Request, res: Response) {
   } catch (error: any) {
     console.error('❌ Erro ao fazer upload:', error)
     return res.status(500).json({
-      error: 'Erro ao fazer upload do documento',
-      details: error.message
+      error: 'Erro ao fazer upload do documento'
     })
   }
 }
@@ -548,8 +540,7 @@ export async function cancelProcessing(req: Request, res: Response) {
   } catch (error: any) {
     console.error('❌ Erro ao cancelar:', error)
     return res.status(500).json({
-      error: 'Erro ao cancelar processamento',
-      details: error.message
+      error: 'Erro ao cancelar processamento'
     })
   }
 }

@@ -38,7 +38,14 @@ export const enviarMensagem = async (req: Request, res: Response) => {
       return res.status(400).json({ detail: 'Mensagem é obrigatória' })
     }
 
-    if (mensagem.length > 2000) {
+    // Sanitize: trim whitespace and remove null bytes
+    const mensagemSanitizada = mensagem.trim().replace(/\0/g, '');
+
+    if (mensagemSanitizada.length === 0) {
+      return res.status(400).json({ detail: 'Mensagem é obrigatória' })
+    }
+
+    if (mensagemSanitizada.length > 2000) {
       return res.status(400).json({ detail: 'Mensagem muito longa (máximo 2000 caracteres)' })
     }
 
@@ -65,7 +72,7 @@ export const enviarMensagem = async (req: Request, res: Response) => {
       }
     }
 
-    messages.push({ role: 'user', content: mensagem })
+    messages.push({ role: 'user', content: mensagemSanitizada })
 
     // Chamar Claude API
     if (!anthropicClient) {
@@ -265,6 +272,7 @@ async function buildClientContext(clientId: number): Promise<string> {
           SELECT id FROM monthly_accounting_cycles
           WHERE client_id = ${clientId} ORDER BY created_at DESC LIMIT 1
         )
+        LIMIT 20
       `
       if (uploadedDocs.length > 0) {
         parts.push(`Documentos já enviados: ${uploadedDocs.map(d => d.document_type).join(', ')}`)

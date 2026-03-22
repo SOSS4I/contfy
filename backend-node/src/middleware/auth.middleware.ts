@@ -2,6 +2,24 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/auth';
 
 /**
+ * Tipagem do payload JWT decodificado
+ */
+export interface AuthenticatedUser {
+  id: number;
+  email: string;
+  role: 'contador' | 'cliente';
+}
+
+// Extender o tipo Request do Express para incluir o usuário autenticado
+declare global {
+  namespace Express {
+    interface Request {
+      user?: AuthenticatedUser;
+    }
+  }
+}
+
+/**
  * Middleware de autenticação JWT
  * Verifica se o token é válido e adiciona o usuário ao request
  */
@@ -19,7 +37,7 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
     }
 
     // Verificar token
-    const decoded = verifyToken(token);
+    const decoded = verifyToken(token) as AuthenticatedUser | null;
 
     if (!decoded) {
       return res.status(403).json({
@@ -28,8 +46,8 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
       });
     }
 
-    // Adicionar usuário ao request
-    (req as any).user = decoded;
+    // Adicionar usuário ao request com tipagem correta
+    req.user = decoded;
 
     next();
   } catch (error) {
@@ -45,7 +63,7 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
  * Middleware para verificar se usuário é contador
  */
 export function requireContador(req: Request, res: Response, next: NextFunction) {
-  const user = (req as any).user;
+  const user = req.user;
 
   if (!user || user.role !== 'contador') {
     return res.status(403).json({
@@ -58,10 +76,15 @@ export function requireContador(req: Request, res: Response, next: NextFunction)
 }
 
 /**
+ * Alias para requireContador — verifica se usuário tem role 'contador'
+ */
+export const requireContadorRole = requireContador;
+
+/**
  * Middleware para verificar se usuário é cliente
  */
 export function requireCliente(req: Request, res: Response, next: NextFunction) {
-  const user = (req as any).user;
+  const user = req.user;
 
   if (!user || user.role !== 'cliente') {
     return res.status(403).json({
@@ -77,8 +100,15 @@ export function requireCliente(req: Request, res: Response, next: NextFunction) 
  * Middleware para verificar se usuário é o dono do recurso
  */
 export function requireOwner(req: Request, res: Response, next: NextFunction) {
-  const user = (req as any).user;
+  const user = req.user;
   const resourceId = parseInt(req.params.id || req.params.clientId);
+
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Não autenticado'
+    });
+  }
 
   // Contador pode acessar qualquer recurso
   if (user.role === 'contador') {
@@ -87,6 +117,37 @@ export function requireOwner(req: Request, res: Response, next: NextFunction) {
 
   // Cliente só pode acessar seus próprios recursos
   if (user.role === 'cliente' && user.id === resourceId) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: 'Acesso negado. Você não tem permissão para acessar este recurso.'
+  });
+}
+
+/**
+ * Middleware para verificar propriedade do cliente via :clientId param.
+ * Contadores têm acesso irrestrito. Clientes só acessam seus próprios dados.
+ */
+export function requireClienteOwnership(req: Request, res: Response, next: NextFunction) {
+  const user = req.user;
+  const clientId = parseInt(req.params.clientId || req.params.client_id);
+
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Não autenticado'
+    });
+  }
+
+  // Contador pode acessar qualquer cliente
+  if (user.role === 'contador') {
+    return next();
+  }
+
+  // Cliente só pode acessar seus próprios dados
+  if (user.role === 'cliente' && user.id === clientId) {
     return next();
   }
 

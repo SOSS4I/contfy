@@ -89,7 +89,7 @@ export const getNotifications = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Erro ao buscar notificações:', error)
-    res.status(500).json({ error: 'Erro ao buscar notificações', details: error.message })
+    res.status(500).json({ error: 'Erro interno do servidor' })
   }
 }
 
@@ -116,7 +116,7 @@ export const reviewNotification = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Erro ao revisar notificação:', error)
-    res.status(500).json({ error: 'Erro ao revisar notificação', details: error.message })
+    res.status(500).json({ error: 'Erro interno do servidor' })
   }
 }
 
@@ -179,7 +179,7 @@ export const getNotificationDetails = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Erro ao buscar detalhes da notificação:', error)
-    res.status(500).json({ error: 'Erro ao buscar detalhes', details: error.message })
+    res.status(500).json({ error: 'Erro interno do servidor' })
   }
 }
 

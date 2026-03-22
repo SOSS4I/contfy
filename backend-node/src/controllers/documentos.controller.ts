@@ -4,7 +4,11 @@ import { prisma } from '../utils/prisma';
 // GET /documentos - Listar documentos
 export async function listarDocumentos(req: Request, res: Response) {
   try {
-    const { client_id, tipo, status } = req.query;
+    const { client_id, tipo, status, page = '1', limit = '50' } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page as string) || 1);
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit as string) || 50));
+    const skip = (pageNum - 1) * limitNum;
 
     let where: any = {};
 
@@ -20,21 +24,32 @@ export async function listarDocumentos(req: Request, res: Response) {
       where.status = status;
     }
 
-    const documentos = await prisma.document.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        client: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    const [documentos, total] = await Promise.all([
+      prisma.document.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.document.count({ where }),
+    ]);
 
-    res.json({ data: documentos });
+    res.json({
+      data: documentos,
+      total,
+      page: pageNum,
+      per_page: limitNum,
+      total_pages: Math.ceil(total / limitNum),
+    });
   } catch (error: any) {
     console.error('Erro ao listar documentos:', error);
     res.status(500).json({ detail: 'Erro ao listar documentos' });
