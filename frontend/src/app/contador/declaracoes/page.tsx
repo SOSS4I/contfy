@@ -43,8 +43,8 @@ export default function DeclaracoesPage() {
         setDeclaracoes(data.data?.declaracoes || [])
         setStats(data.data?.stats || { total: 0, enviadas: 0, pendentes: 0, processando: 0, clientes_ativos: 0 })
       }
-    } catch (err) {
-      console.error('Erro ao buscar declarações:', err)
+    } catch {
+      // silently handle - user sees loading state resolve
     } finally {
       setLoading(false)
     }

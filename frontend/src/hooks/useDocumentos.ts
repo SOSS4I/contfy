@@ -20,7 +20,6 @@ export function useDocumentos(filters?: DocumentoFilters) {
         setTotalPages(response.total_pages)
       } catch (err: any) {
         setError(err.response?.data?.message || 'Erro ao carregar documentos')
-        console.error('Erro ao carregar documentos:', err)
       } finally {
         setLoading(false)
       }
@@ -62,7 +61,6 @@ export function useDocumentosStats(clienteId?: string) {
         setStats(data)
       } catch (err: any) {
         setError(err.response?.data?.message || 'Erro ao carregar estatísticas')
-        console.error('Erro ao carregar estatísticas:', err)
       } finally {
         setLoading(false)
       }
@@ -93,7 +91,6 @@ export function useDocumento(id: string | null) {
         setDocumento(data)
       } catch (err: any) {
         setError(err.response?.data?.message || 'Erro ao carregar documento')
-        console.error('Erro ao carregar documento:', err)
       } finally {
         setLoading(false)
       }

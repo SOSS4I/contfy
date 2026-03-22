@@ -134,8 +134,7 @@ export default function NotificationDetailsPage() {
       })
 
       router.push('/contador/notificacoes')
-    } catch (error) {
-      console.error('Erro ao aprovar:', error)
+    } catch {
       setFeedbackMsg('Erro ao aprovar cliente. Tente novamente.')
       setFeedbackType('error')
     } finally {
@@ -163,8 +162,7 @@ export default function NotificationDetailsPage() {
         })
       })
       router.push('/contador/notificacoes')
-    } catch (error) {
-      console.error('Erro ao rejeitar:', error)
+    } catch {
       setFeedbackMsg('Erro ao rejeitar. Tente novamente.')
       setFeedbackType('error')
     } finally {

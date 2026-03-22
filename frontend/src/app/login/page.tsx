@@ -86,9 +86,8 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-    } catch (err) {
-      console.error('[LoginPage] Erro no login:', err)
-      setError('Email ou senha inválidos')
+    } catch (err: any) {
+      setError(err?.message || 'Email ou senha inválidos')
     } finally {
       setIsLoading(false)
     }

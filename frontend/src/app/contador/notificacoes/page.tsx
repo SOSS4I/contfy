@@ -48,8 +48,8 @@ export default function NotificacoesPage() {
       const data = await res.json()
       setNotifications(data.data)
       setStats(data.stats)
-    } catch (error) {
-      console.error('Erro ao buscar notificações:', error)
+    } catch {
+      // silently handle
     } finally {
       setLoading(false)
     }

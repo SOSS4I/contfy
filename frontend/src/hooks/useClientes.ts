@@ -20,7 +20,6 @@ export function useClientes(filters?: ClienteFilters) {
         setTotalPages(response.total_pages)
       } catch (err: any) {
         setError(err.response?.data?.message || 'Erro ao carregar clientes')
-        console.error('Erro ao carregar clientes:', err)
       } finally {
         setLoading(false)
       }
@@ -61,7 +60,6 @@ export function useClientesStats() {
         setStats(data)
       } catch (err: any) {
         setError(err.response?.data?.message || 'Erro ao carregar estatísticas')
-        console.error('Erro ao carregar estatísticas:', err)
       } finally {
         setLoading(false)
       }
@@ -92,7 +90,6 @@ export function useCliente(id: string | null) {
         setCliente(data)
       } catch (err: any) {
         setError(err.response?.data?.message || 'Erro ao carregar cliente')
-        console.error('Erro ao carregar cliente:', err)
       } finally {
         setLoading(false)
       }

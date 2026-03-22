@@ -51,8 +51,8 @@ export default function DeclaracoesPage() {
         setStats(data.data?.stats || { total: 0, enviadas: 0, pendentes: 0, processando: 0 })
         setRegime(data.data?.regime || '')
       }
-    } catch (err) {
-      console.error('Erro ao buscar declarações:', err)
+    } catch {
+      // silently handle - user sees loading state resolve
     } finally {
       setLoading(false)
     }
