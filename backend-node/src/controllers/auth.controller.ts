@@ -609,14 +609,10 @@ export async function setPasswordCliente(req: Request, res: Response) {
  * POST /api/v1/auth/login
  */
 export async function loginGeneric(req: Request, res: Response) {
-  const startTime = Date.now();
-  console.log('[AUTH/login] Requisição recebida - body:', JSON.stringify({ email: req.body?.email, hasPassword: !!req.body?.password }));
-  console.log('[AUTH/login] Headers origin:', req.headers.origin);
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      console.log('[AUTH/login] Email ou senha ausentes');
       return res.status(400).json({
         success: false,
         message: 'Email e senha são obrigatórios'
@@ -624,26 +620,21 @@ export async function loginGeneric(req: Request, res: Response) {
     }
 
     const emailLower = email.toLowerCase();
-    console.log('[AUTH/login] Tentando login para:', emailLower);
 
     // Tentar como contador primeiro
-    console.log('[AUTH/login] Buscando contador no banco...');
     let contador: any = null;
     try {
       contador = await prisma.contador.findUnique({ where: { email: emailLower } });
-      console.log('[AUTH/login] Contador encontrado:', !!contador, contador ? `status=${contador.status}` : '');
     } catch (dbError: any) {
-      console.error('[AUTH/login] ERRO DE BANCO ao buscar contador:', dbError?.message);
+      console.error('[AUTH] Erro de banco no login:', dbError?.message);
       return res.status(500).json({ success: false, message: 'Erro interno no servidor' });
     }
 
     if (contador && contador.status === 'ativo') {
       const senhaValida = await verifyPassword(password, contador.passwordHash);
-      console.log('[AUTH/login] Senha do contador válida:', senhaValida);
       if (senhaValida) {
         const token = generateToken({ id: contador.id, email: contador.email, role: 'contador' });
         await prisma.contador.update({ where: { id: contador.id }, data: { updatedAt: new Date() } });
-        console.log(`[AUTH/login] Login contador bem-sucedido em ${Date.now() - startTime}ms`);
         return res.status(200).json({
           success: true,
           message: 'Login realizado com sucesso',
@@ -660,26 +651,22 @@ export async function loginGeneric(req: Request, res: Response) {
     }
 
     // Tentar como cliente
-    console.log('[AUTH/login] Buscando cliente no banco...');
     let cliente: any = null;
     try {
       cliente = await prisma.client.findUnique({
         where: { email: emailLower },
         include: { contador: { select: { id: true, name: true, email: true, phone: true } } }
       });
-      console.log('[AUTH/login] Cliente encontrado:', !!cliente);
     } catch (dbError: any) {
-      console.error('[AUTH/login] ERRO DE BANCO ao buscar cliente:', dbError?.message);
+      console.error('[AUTH] Erro de banco no login:', dbError?.message);
       return res.status(500).json({ success: false, message: 'Erro interno no servidor' });
     }
 
     if (cliente) {
       const senhaValida = await verifyPassword(password, cliente.passwordHash || '');
-      console.log('[AUTH/login] Senha do cliente válida:', senhaValida);
       if (senhaValida) {
         const token = generateToken({ id: cliente.id, email: cliente.email, role: 'cliente' });
         await prisma.client.update({ where: { id: cliente.id }, data: { updatedAt: new Date() } });
-        console.log(`[AUTH/login] Login cliente bem-sucedido em ${Date.now() - startTime}ms`);
         return res.status(200).json({
           success: true,
           message: 'Login realizado com sucesso',
@@ -696,7 +683,6 @@ export async function loginGeneric(req: Request, res: Response) {
       }
     }
 
-    console.log(`[AUTH/login] Login falhou - email não encontrado ou senha inválida em ${Date.now() - startTime}ms`);
     return res.status(401).json({ success: false, message: 'Email ou senha inválidos' });
 
   } catch (error: any) {
