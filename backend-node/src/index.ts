@@ -28,10 +28,22 @@ app.use(helmet());
 
 // CORS
 const CORS_ORIGINS = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',')
+  ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
   : ['http://localhost:3000', 'http://localhost:3001'];
+
 app.use(cors({
-  origin: CORS_ORIGINS,
+  origin: (origin, callback) => {
+    // Permite requests sem origin (mobile, Postman, etc.)
+    if (!origin) return callback(null, true);
+    // Permite qualquer subdomínio do Vercel deste projeto
+    if (origin.endsWith('.vercel.app')) return callback(null, true);
+    // Permite origens configuradas manualmente
+    if (CORS_ORIGINS.includes(origin)) return callback(null, true);
+    // Permite localhost
+    if (origin.startsWith('http://localhost')) return callback(null, true);
+    console.warn('[CORS] Origem bloqueada:', origin);
+    callback(new Error('CORS: origem não permitida'));
+  },
   credentials: true,
 }));
 
