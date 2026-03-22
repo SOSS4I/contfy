@@ -269,9 +269,6 @@ export async function getAllClientes(req: Request, res: Response) {
       if (cliente._count.documents > 5) {
         problemas.push(`${cliente._count.documents} documentos pendentes`);
       }
-      if (!cliente.contador) {
-        problemas.push('Sem contador vinculado');
-      }
 
       return {
         id: cliente.id.toString(),
